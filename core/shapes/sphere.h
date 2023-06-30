@@ -28,14 +28,14 @@
 #include "../math/ray.h"
 
 typedef struct sphere {
-	real_t radius;
-	rvec3_t origin;
+    real_t radius;
+    rvec3_t origin;
 } sphere_t;
 
 typedef struct sphere_intersect {
-	rvec3_t point;
-	rvec3_t normal;
-	real_t distance;
+    rvec3_t point;
+    rvec3_t normal;
+    real_t distance;
 } sphere_intersect_t;
 
 int sphere_ray_intersect(sphere_t sphere, ray_t ray, sphere_intersect_t* intersect);
