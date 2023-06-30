@@ -27,9 +27,19 @@ if (WIN32)
     set(RT_EVERYWHERE_HARNESS Win32Harness)
 endif()
 
+if (APPLE)
+    add_subdirectory(platforms/macos)
+    set(RT_EVERYWHERE_HARNESS macOSHarness)
+endif()
+
 add_executable(RTEverywhere ${RT_EVERYWHERE_TYPE} ${RT_EVERYWHERE_SOURCES})
 target_link_libraries(RTEverywhere PUBLIC ${RT_EVERYWHERE_HARNESS})
 
 if (WIN32)
     set_target_properties(RTEverywhere PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
+
+if (APPLE)
+    set_target_properties(RTEverywhere PROPERTIES MACOSX_BUNDLE TRUE)
+    target_link_libraries(RTEverywhere PUBLIC "-framework Foundation" "-framework AppKit")
 endif()
