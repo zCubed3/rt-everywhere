@@ -58,7 +58,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					point_t point = { x, y };
 					rvec3_t col;
 
-					trace_scene(col, camera, point);
+					trace_pixel(col, camera, point);
 
 					SetPixel(hdc, x, y, RGB(col[0] * 255, col[1] * 255, col[2] * 255));
 				}

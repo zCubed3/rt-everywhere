@@ -51,9 +51,17 @@ typedef struct camera {
 	rmat4_t mat_vp_i;
 } camera_t;
 
+typedef struct fragment {
+	rvec3_t position;
+	rvec3_t normal;
+	rvec3_t color;
+} fragment_t;
+
 void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point);
 
 camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation);
-void trace_scene(rvec3_t dst_col, camera_t viewport, point_t point);
+int trace_scene(fragment_t *p_fragment, ray_t ray);
+
+void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point);
 
 #endif

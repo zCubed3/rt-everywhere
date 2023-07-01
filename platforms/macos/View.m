@@ -36,7 +36,7 @@
 			point_t point = {x, y};
 
 			rvec3_t col;
-			trace_scene(col, camera, point);
+			trace_pixel(col, camera, point);
 
 			NSColor *our_color = [NSColor colorWithRed:col[0] green:col[1] blue:col[2] alpha:1.0];
 			[our_color setFill];

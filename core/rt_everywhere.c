@@ -62,15 +62,54 @@ camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
 	return cam;
 }
 
-void trace_scene(rvec3_t dst_col, camera_t camera, point_t point) {
+int trace_scene(fragment_t *p_fragment, ray_t ray) {
+	int hit = 0;
+
+	// Intersect the ground
+	real_t closest_t = 100;
+	real_t ground_t = -ray.origin[1] / ray.direction[1];
+	if (ground_t > 0 && ground_t < closest_t) {
+		closest_t = ground_t;
+
+		// Position
+		rvec3_mul_scalar(p_fragment->position, ray.direction, ground_t);
+		rvec3_add(p_fragment->position, p_fragment->position, ray.origin);
+
+		rvec3_copy(p_fragment->normal, (rvec3_t){0, 1, 0});
+		rvec3_copy(p_fragment->color, (rvec3_t){1, 1, 1});
+
+		hit = 1;
+	}
+
+	sphere_t sphere;
+	sphere_intersect_t intersect;
+
+	rvec3_copy(sphere.origin, (rvec3_t){0, 0, 0});
+	sphere.radius = REAL(0.5);
+
+	if (sphere_ray_intersect(sphere, ray, &intersect)) {
+		if (intersect.distance < closest_t) {
+			closest_t = intersect.distance;
+
+			rvec3_copy(p_fragment->position, intersect.point);
+			rvec3_copy(p_fragment->normal, intersect.normal);
+			rvec3_copy(p_fragment->color, (rvec3_t){1, 1, 1});
+
+			hit = 1;
+		}
+	}
+
+	return hit;
+}
+
+void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 	// Set the color to zero
 	rvec3_copy(dst_col, (rvec3_t){0, 0, 0});
 
+	// Setup the base ray
 	rvec2_t view_coord;
 	screen_to_viewport(view_coord, camera.viewport, point);
 
-	// Our camera is centered at 0, 0, -1
-	// The y-axis is flipped if necessary
 	ray_t ray;
 
 	rvec3_copy(ray.direction, (rvec3_t){view_coord[0], -view_coord[1], 1});
@@ -78,8 +117,6 @@ void trace_scene(rvec3_t dst_col, camera_t camera, point_t point) {
 #ifdef RTEVERYWHERE_FLIP_Y
 	ray.direction[1] *= -1;
 #endif
-
-	//rvec3_normalize(ray.direction);
 
 	rvec4_t pre_t;
 	rvec4_t post_t;
@@ -95,36 +132,66 @@ void trace_scene(rvec3_t dst_col, camera_t camera, point_t point) {
 
 	rvec3_copy_rvec4(ray.origin, post_t);
 
-	// Intersect the ground
-	real_t closest_t = 100;
-	real_t ground_t = -ray.origin[1] / ray.direction[1];
-	if (ground_t > 0 && ground_t < closest_t) {
-		closest_t = ground_t;
+	//
+	// Base pass
+	//
+	rvec3_t light_dir = {1, 1, 1};
+	rvec3_normalize(light_dir);
 
-		rvec3_copy_scalar(dst_col, 1);
-	}
+	fragment_t base_frag;
+	if (trace_scene(&base_frag, ray)) {
+		rvec3_t bias;
+		rvec3_copy(bias, base_frag.normal);
+		rvec3_mul_scalar(bias, bias, REAL(0.00001));
 
-	sphere_t sphere;
-	sphere_intersect_t intersect;
+		// Shadowing
+		fragment_t shadow_frag;
+		ray_t shadow_ray;
 
-	rvec3_copy(sphere.origin, (rvec3_t){0, 0, 0});
-	sphere.radius = REAL(0.5);
+		rvec3_copy(shadow_ray.origin, base_frag.position);
+		rvec3_add(shadow_ray.origin, shadow_ray.origin, bias);
 
-	if (sphere_ray_intersect(sphere, ray, &intersect)) {
-		if (intersect.distance < closest_t) {
-			closest_t = intersect.distance;
+		rvec3_copy(shadow_ray.direction, light_dir);
 
-			rvec3_copy(dst_col, intersect.normal);
+		int shadow = !trace_scene(&shadow_frag, shadow_ray);
 
-			// Do VERY basic lambert shading
-			rvec3_t sun = {1, 1, 1};
-			rvec3_normalize(sun);
+		// Lambert shading
+		real_t lambert = rvec3_dot(base_frag.normal, light_dir);
+		lambert *= (real_t)shadow;
 
-			real_t s = rvec3_dot(intersect.normal, sun);
-			rvec3_copy_scalar(dst_col, s);
+		rvec3_copy(dst_col, base_frag.color);
+		rvec3_mul_scalar(dst_col, dst_col, lambert);
+
+		// Reflection
+		/*
+		fragment_t reflect_frag;
+		ray_t reflect_ray;
+
+		rvec3_copy(reflect_ray.origin, base_frag.position);
+		rvec3_add(reflect_ray.origin, reflect_ray.origin, bias);
+
+		rvec3_t view_dir;
+		rvec3_copy(view_dir, ray.direction);
+		rvec3_mul_scalar(view_dir, view_dir, REAL(-1.0));
+
+		rvec3_t incidence;
+		rvec3_reflect(incidence, view_dir, base_frag.normal);
+		rvec3_normalize(incidence);
+
+		rvec3_copy(reflect_ray.direction, incidence);
+
+		if (trace_scene(&reflect_frag, reflect_ray)) {
+			rvec3_copy(dst_col, reflect_frag.color);
+
+			real_t lambert2 = rvec3_dot(reflect_frag.normal, light_dir);
+
+			rvec3_mul_scalar(dst_col, dst_col, lambert2);
 		}
+		*/
 	}
 
-	//rvec3_copy(dst_col, ray.direction);
+	//
+	// Final pass
+	//
 	rvec3_saturate(dst_col);
 }
