@@ -35,34 +35,39 @@ void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point) {
 	dst[1] = ((v + (tex_y / REAL(2.0))) * REAL(2.0)) - REAL(1.0);
 }
 
-void trace_scene(rvec3_t dst_col, viewport_t viewport, point_t point) {
+camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
+	camera_t cam;
+
+	rmat4_t mat_translation;
+	rmat4_t mat_rotation;
+
+	rmat4_translate(mat_translation, position);
+	rmat4_rotate(mat_rotation, rotation);
+
+	rmat4_mul(cam.mat_v, mat_translation, mat_rotation);
+
+	real_t aspect = (real_t)viewport.width / (real_t)viewport.height;
+	rmat4_perspective(cam.mat_p, REAL(90.0), aspect, REAL(0.01), REAL(100.0));
+
+	rmat4_t mat_vp;
+
+	rmat4_mul(mat_vp, cam.mat_p, cam.mat_v);
+	rmat4_inverse(cam.mat_vp_i, mat_vp);
+
+	cam.viewport = viewport;
+
+	rvec3_copy(cam.position, position);
+	rvec3_copy(cam.rotation, rotation);
+
+	return cam;
+}
+
+void trace_scene(rvec3_t dst_col, camera_t camera, point_t point) {
 	// Set the color to zero
 	rvec3_copy(dst_col, (rvec3_t){0, 0, 0});
 
-	real_t aspect = (real_t)viewport.width / (real_t)viewport.height;
-
-	// TODO: Cache this for faster calculation
-	rmat4_t mat_v;
-	rmat4_t mat_p;
-
-	rmat4_t translation;
-	rmat4_t rotation;
-
-	rmat4_translate(translation, (rvec3_t){0, 1, 1});
-	rmat4_rotate(rotation, (rvec3_t){45, 0, 0});
-
-	rmat4_mul(mat_v, translation, rotation);
-
-	rmat4_perspective(mat_p, REAL(90.0), REAL(1.0), REAL(0.01), REAL(100.0));
-
-	rmat4_t mat_vp;
-	rmat4_t mat_vp_i;
-
-	rmat4_mul(mat_vp, mat_p, mat_v);
-	rmat4_inverse(mat_vp_i, mat_vp);
-
 	rvec2_t view_coord;
-	screen_to_viewport(view_coord, viewport, point);
+	screen_to_viewport(view_coord, camera.viewport, point);
 
 	// Our camera is centered at 0, 0, -1
 	// The y-axis is flipped if necessary
@@ -80,13 +85,13 @@ void trace_scene(rvec3_t dst_col, viewport_t viewport, point_t point) {
 	rvec4_t post_t;
 
 	rvec4_copy_rvec3_w(pre_t, ray.direction, REAL(1.0));
-	rmat4_mul_rvec4(post_t, mat_vp_i, pre_t);
+	rmat4_mul_rvec4(post_t, camera.mat_vp_i, pre_t);
 
 	rvec3_copy_rvec4(ray.direction, post_t);
 	rvec3_normalize(ray.direction);
 
 	rvec4_copy_rvec3_w(pre_t, (rvec3_t){0, 0, 0}, REAL(1.0));
-	rmat4_mul_rvec4(post_t, mat_v, pre_t);
+	rmat4_mul_rvec4(post_t, camera.mat_v, pre_t);
 
 	rvec3_copy_rvec4(ray.origin, post_t);
 

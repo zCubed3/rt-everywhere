@@ -41,8 +41,19 @@ typedef struct point {
 	unsigned int y;
 } point_t;
 
+typedef struct camera {
+	viewport_t viewport;
+	rvec3_t position;
+	rvec3_t rotation;
+
+	rmat4_t mat_v;
+	rmat4_t mat_p;
+	rmat4_t mat_vp_i;
+} camera_t;
+
 void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point);
 
-void trace_scene(rvec3_t dst_col, viewport_t viewport, point_t point);
+camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation);
+void trace_scene(rvec3_t dst_col, camera_t viewport, point_t point);
 
 #endif

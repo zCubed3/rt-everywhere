@@ -28,6 +28,7 @@
 
 - (void)drawRect:(NSRect)dirtyRect {
 	viewport_t viewport = {dirtyRect.size.width, dirtyRect.size.height};
+	camera_t camera = setup_camera(viewport, (rvec3_t){0, 1, 1}, (rvec3_t){45, 0, 0});
 
 	// TODO: Find a MUCH better method of doing this?
 	for (int x = dirtyRect.origin.x; x < dirtyRect.size.width; x++) {
@@ -35,7 +36,7 @@
 			point_t point = {x, y};
 
 			rvec3_t col;
-			trace_scene(col, viewport, point);
+			trace_scene(col, camera, point);
 
 			NSColor *our_color = [NSColor colorWithRed:col[0] green:col[1] blue:col[2] alpha:1.0];
 			[our_color setFill];

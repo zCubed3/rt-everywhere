@@ -29,6 +29,7 @@
 #include <rt_everywhere.h>
 
 viewport_t viewport = { 0, 0 };
+camera_t camera;
 HBITMAP hbitmap = NULL;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -38,6 +39,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case WM_SIZE: {
 			viewport.width = LOWORD(lParam);
 			viewport.height = HIWORD(lParam);
+
+			camera = setup_camera(viewport, (rvec3_t){0, 1, 1}, (rvec3_t){45, 0, 0});
 
 			return DefWindowProc(hwnd, uMsg, wParam, lParam);
 		}
@@ -55,7 +58,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					point_t point = { x, y };
 					rvec3_t col;
 
-					trace_scene(col, viewport, point);
+					trace_scene(col, camera, point);
 
 					SetPixel(hdc, x, y, RGB(col[0] * 255, col[1] * 255, col[2] * 255));
 				}
