@@ -12,6 +12,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 set(RT_EVERYWHERE_SOURCES
     "core/math/real.c"
     "core/math/vectors.c"
+    "core/math/matrices.c"
 
     "core/shapes/sphere.c"
 

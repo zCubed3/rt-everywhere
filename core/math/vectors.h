@@ -29,18 +29,37 @@ typedef real_t rvec2_t[2];
 typedef real_t rvec3_t[3];
 typedef real_t rvec4_t[4];
 
+//
+// rvec3_t
+//
 void rvec3_copy(rvec3_t dst, const rvec3_t src);
 void rvec3_copy_scalar(rvec3_t dst, real_t s);
+void rvec3_copy_rvec4(rvec3_t dst, const rvec4_t src);
 
 real_t rvec3_length(const rvec3_t vec);
 real_t rvec3_dot(const rvec3_t a, const rvec3_t b);
 
 void rvec3_normalize(rvec3_t dst);
 void rvec3_saturate(rvec3_t dst);
+void rvec3_cross(rvec3_t dst, const rvec3_t a, const rvec3_t b);
+void rvec3_reflect(rvec3_t dst, const rvec3_t incoming, const rvec3_t normal);
 
 void rvec3_add(rvec3_t dst, const rvec3_t a, const rvec3_t b);
 void rvec3_sub(rvec3_t dst, const rvec3_t a, const rvec3_t b);
 
 void rvec3_mul_scalar(rvec3_t dst, const rvec3_t a, real_t s);
+
+//
+// rvec4_t
+//
+void rvec4_copy(rvec4_t dst, const rvec4_t src);
+void rvec4_copy_rvec3(rvec4_t dst, const rvec3_t src);
+void rvec4_copy_rvec3_w(rvec4_t dst, const rvec3_t src, real_t w);
+
+void rvec4_add(rvec4_t dst, const rvec4_t a, const rvec4_t b);
+void rvec4_sub(rvec4_t dst, const rvec4_t a, const rvec4_t b);
+void rvec4_mul(rvec4_t dst, const rvec4_t a, const rvec4_t b);
+
+void rvec4_mul_scalar(rvec4_t dst, const rvec4_t a, real_t s);
 
 #endif //RTEVERYWHERE_VECTORS_H

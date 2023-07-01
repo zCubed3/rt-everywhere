@@ -22,6 +22,8 @@
 
 #include "real.h"
 
+#define REAL_PI REAL(3.141592654)
+
 real_t real_min(real_t r, real_t min) {
 	return r < min ? r : min;
 }
@@ -32,4 +34,12 @@ real_t real_max(real_t r, real_t max) {
 
 real_t real_saturate(real_t r) {
 	return real_max(REAL(0.0), real_min(REAL(1.0), r));
+}
+
+real_t real_to_radians(real_t r) {
+	return r * 	(REAL_PI / REAL(180.0));
+}
+
+real_t real_to_degrees(real_t r) {
+	return r * (REAL(180.0) / REAL_PI);
 }

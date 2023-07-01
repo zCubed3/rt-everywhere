@@ -26,6 +26,7 @@
 // Here we include all our common headers
 #include "math/real.h"
 #include "math/vectors.h"
+#include "math/matrices.h"
 #include "math/ray.h"
 
 #include "shapes/sphere.h"
