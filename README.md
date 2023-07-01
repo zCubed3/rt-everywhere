@@ -6,11 +6,11 @@
 * RT-Everywhere is an attempt to make a *basic* toy CPU raytracer and port it to as many platforms as possible
 
 ### Platforms
-| Platform        | Support State     |
-|-----------------|-------------------|
-| Windows (Win32) | Complete (CMake)  |
-| macOS           | TODO              |
-| Unix-like (X11) | TODO              |
-| Nintendo 3DS    | TODO              |
-| Nintendo Wii    | TODO              |
-| PS Vita         | TODO              |
+| Platform        | Support State    |
+|-----------------|------------------|
+| Windows (Win32) | Complete (CMake) |
+| macOS           | Complete (CMake) |
+| Unix-like (X11) | TODO             |
+| Nintendo 3DS    | TODO             |
+| Nintendo Wii    | TODO             |
+| PS Vita         | TODO             |
