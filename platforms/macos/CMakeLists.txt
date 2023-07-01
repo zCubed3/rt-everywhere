@@ -1,6 +1,6 @@
 set(RT_HARNESS_MACOS_SOURCES
     "AppDelegate.m" "AppDelegate.h"
-    "ViewController.m" "AppDelegate.h"
+    "View.m" "AppDelegate.h"
     "main.m"
 )
 

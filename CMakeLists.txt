@@ -41,5 +41,6 @@ endif()
 
 if (APPLE)
     set_target_properties(RTEverywhere PROPERTIES MACOSX_BUNDLE TRUE)
-    target_link_libraries(RTEverywhere PUBLIC "-framework Foundation" "-framework AppKit")
+    target_link_libraries(RTEverywhere PUBLIC "-framework Foundation" "-framework Cocoa")
+    target_compile_definitions(RTEverywhere PUBLIC "RTEVERYWHERE_FLIP_Y")
 endif()

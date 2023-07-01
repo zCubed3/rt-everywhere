@@ -20,10 +20,31 @@
 /* SOFTWARE.                                                                            */
 /****************************************************************************************/
 
-#import <Cocoa/Cocoa.h>
+#import "View.h"
 
-@interface ViewController : NSViewController
+#import <rt_everywhere.h>
 
+@implementation View
+
+- (void)drawRect:(NSRect)dirtyRect {
+	viewport_t viewport = {dirtyRect.size.width, dirtyRect.size.height};
+
+	// TODO: Find a MUCH better method of doing this?
+	for (int x = dirtyRect.origin.x; x < dirtyRect.size.width; x++) {
+		for (int y = dirtyRect.origin.y; y < dirtyRect.size.height; y++) {
+			point_t point = {x, y};
+
+			rvec3_t col;
+			trace_scene(col, viewport, point);
+
+			NSColor *our_color = [NSColor colorWithRed:col[0] green:col[1] blue:col[2] alpha:1.0];
+			[our_color setFill];
+
+			NSRectFill(NSMakeRect(x, y, 1, 1));
+
+
+		}
+	}
+}
 
 @end
-

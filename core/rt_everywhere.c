@@ -47,11 +47,15 @@ void trace_scene(rvec3_t dst_col, viewport_t viewport, point_t point) {
 	view_coord[1] /= aspect;
 
 	// Our camera is centered at 0, 0, -1
-	// The y-axis is flipped
+	// The y-axis is flipped if necessary
 	ray_t ray;
 
 	rvec3_copy(ray.origin, (rvec3_t){0, 0, 1});
 	rvec3_copy(ray.direction, (rvec3_t){view_coord[0], -view_coord[1], -1});
+
+#ifdef RTEVERYWHERE_FLIP_Y
+	ray.direction[1] *= -1;
+#endif
 
 	rvec3_normalize(ray.direction);
 
