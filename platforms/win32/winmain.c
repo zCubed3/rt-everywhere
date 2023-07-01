@@ -40,7 +40,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			viewport.width = LOWORD(lParam);
 			viewport.height = HIWORD(lParam);
 
-			camera = setup_camera(viewport, (rvec3_t){0, 1, 1}, (rvec3_t){45, 0, 0});
+			camera = default_camera(viewport);
 
 			return DefWindowProc(hwnd, uMsg, wParam, lParam);
 		}

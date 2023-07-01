@@ -210,13 +210,13 @@ void rmat4_rotate(rmat4_t dst, const rvec3_t angle) {
 	rmat4_t y;
 	rmat4_t z;
 
-	rmat4_rotate_x(x, angle[0]);
-	rmat4_rotate_y(y, angle[1]);
-	rmat4_rotate_z(z, angle[2]);
+	rmat4_rotate_x(x, real_to_radians(angle[0]));
+	rmat4_rotate_y(y, real_to_radians(angle[1]));
+	rmat4_rotate_z(z, real_to_radians(angle[2]));
 
 	rmat4_t combo;
-	rmat4_mul(combo, z, y);
-	rmat4_mul(dst, combo, x);
+	rmat4_mul(combo, x, y);
+	rmat4_mul(dst, combo, z);
 }
 
 void rmat4_translate(rmat4_t dst, const rvec3_t translation) {

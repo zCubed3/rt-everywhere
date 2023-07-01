@@ -51,16 +51,25 @@ typedef struct camera {
 	rmat4_t mat_vp_i;
 } camera_t;
 
+typedef enum MATERIAL_TYPE {
+	MATERIAL_TYPE_OPAQUE,
+	MATERIAL_TYPE_MIRROR
+} MATERIAL_TYPE_E;
+
 typedef struct fragment {
 	rvec3_t position;
 	rvec3_t normal;
 	rvec3_t color;
+	MATERIAL_TYPE_E material_type;
 } fragment_t;
 
 void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point);
 
 camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation);
+camera_t default_camera(viewport_t viewport);
+
 int trace_scene(fragment_t *p_fragment, ray_t ray);
+void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray);
 
 void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point);
 

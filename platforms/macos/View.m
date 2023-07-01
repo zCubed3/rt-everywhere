@@ -28,7 +28,7 @@
 
 - (void)drawRect:(NSRect)dirtyRect {
 	viewport_t viewport = {dirtyRect.size.width, dirtyRect.size.height};
-	camera_t camera = setup_camera(viewport, (rvec3_t){0, 1, 1}, (rvec3_t){45, 0, 0});
+	camera_t camera = default_camera(viewport);
 
 	// TODO: Find a MUCH better method of doing this?
 	for (int x = dirtyRect.origin.x; x < dirtyRect.size.width; x++) {

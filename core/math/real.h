@@ -37,7 +37,14 @@ typedef double real_t;
 
 real_t real_min(real_t r, real_t min);
 real_t real_max(real_t r, real_t max);
+
+real_t real_mod(real_t x, real_t y);
+
 real_t real_saturate(real_t r);
+real_t real_fract(real_t r);
+
+real_t real_floor(real_t r);
+real_t real_ceil(real_t r);
 
 real_t real_to_radians(real_t r);
 real_t real_to_degrees(real_t r);

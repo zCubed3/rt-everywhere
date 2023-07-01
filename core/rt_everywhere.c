@@ -22,6 +22,8 @@
 
 #include "rt_everywhere.h"
 
+#include <math.h>
+
 void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point) {
 	// Note: When x == 0, x / width = 0, but x never hits width
 	// Therefore we must add half the texel size to x to account for this
@@ -62,8 +64,24 @@ camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
 	return cam;
 }
 
+camera_t default_camera(viewport_t viewport) {
+	rvec3_t origin = {0, 1, 2};
+	rvec3_t target = {0, REAL(0.25), 0};
+
+	rvec3_t direction;
+	rvec3_sub(direction, origin, target);
+	rvec3_normalize(direction);
+
+	real_t yaw = real_to_degrees((real_t)atan2(direction[0], direction[2]));
+	real_t pitch = real_to_degrees((real_t)asin(direction[1]));
+
+	return setup_camera(viewport, origin, (rvec3_t){pitch, -yaw, 0});
+}
+
 int trace_scene(fragment_t *p_fragment, ray_t ray) {
 	int hit = 0;
+
+	p_fragment->material_type = MATERIAL_TYPE_OPAQUE;
 
 	// Intersect the ground
 	real_t closest_t = 100;
@@ -76,7 +94,21 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 		rvec3_add(p_fragment->position, p_fragment->position, ray.origin);
 
 		rvec3_copy(p_fragment->normal, (rvec3_t){0, 1, 0});
-		rvec3_copy(p_fragment->color, (rvec3_t){1, 1, 1});
+
+		// Checkerboarding
+		rvec3_t checker;
+		rvec3_copy(checker, p_fragment->position);
+
+		checker[0] = real_floor(checker[0]);
+		checker[2] = real_floor(checker[2]);
+
+		real_t mod = real_mod(checker[0] + real_mod(checker[2], REAL(2.0)), REAL(2.0));
+
+		if (mod) {
+			rvec3_copy(p_fragment->color, (rvec3_t) {1, 1, 1});
+		} else {
+			rvec3_copy(p_fragment->color, (rvec3_t) {REAL(0.1), REAL(0.1), REAL(0.1)});
+		}
 
 		hit = 1;
 	}
@@ -84,7 +116,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 	sphere_t sphere;
 	sphere_intersect_t intersect;
 
-	rvec3_copy(sphere.origin, (rvec3_t){0, 0, 0});
+	rvec3_copy(sphere.origin, (rvec3_t){0, REAL(0.25), 0});
 	sphere.radius = REAL(0.5);
 
 	if (sphere_ray_intersect(sphere, ray, &intersect)) {
@@ -94,6 +126,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 			rvec3_copy(p_fragment->position, intersect.point);
 			rvec3_copy(p_fragment->normal, intersect.normal);
 			rvec3_copy(p_fragment->color, (rvec3_t){1, 1, 1});
+			p_fragment->material_type = MATERIAL_TYPE_MIRROR;
 
 			hit = 1;
 		}
@@ -102,11 +135,38 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 	return hit;
 }
 
-void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
-	// Set the color to zero
-	rvec3_copy(dst_col, (rvec3_t){0, 0, 0});
+void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
+	rvec3_t light_dir = {1, REAL(0.8), REAL(0.5)};
+	rvec3_normalize(light_dir);
 
-	// Setup the base ray
+	rvec3_t bias;
+	rvec3_copy(bias, fragment.normal);
+	rvec3_mul_scalar(bias, bias, REAL(0.00001));
+
+	// Shadowing
+	fragment_t shadow_frag;
+	ray_t shadow_ray;
+
+	rvec3_copy(shadow_ray.origin, fragment.position);
+	rvec3_add(shadow_ray.origin, shadow_ray.origin, bias);
+
+	rvec3_copy(shadow_ray.direction, light_dir);
+
+	int shadow = !trace_scene(&shadow_frag, shadow_ray);
+
+	// Lambert shading
+	real_t lambert = rvec3_dot(fragment.normal, light_dir);
+	lambert *= (real_t)shadow;
+
+	rvec3_copy(dst_col, fragment.color);
+	rvec3_mul_scalar(dst_col, dst_col, lambert);
+}
+
+void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
+	// Clear color
+	rvec3_copy(dst_col, (rvec3_t) {REAL(0.1), REAL(0.1), REAL(0.1)});
+
+	// Set up the base ray
 	rvec2_t view_coord;
 	screen_to_viewport(view_coord, camera.viewport, point);
 
@@ -135,59 +195,37 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 	//
 	// Base pass
 	//
-	rvec3_t light_dir = {1, 1, 1};
-	rvec3_normalize(light_dir);
-
 	fragment_t base_frag;
 	if (trace_scene(&base_frag, ray)) {
-		rvec3_t bias;
-		rvec3_copy(bias, base_frag.normal);
-		rvec3_mul_scalar(bias, bias, REAL(0.00001));
-
-		// Shadowing
-		fragment_t shadow_frag;
-		ray_t shadow_ray;
-
-		rvec3_copy(shadow_ray.origin, base_frag.position);
-		rvec3_add(shadow_ray.origin, shadow_ray.origin, bias);
-
-		rvec3_copy(shadow_ray.direction, light_dir);
-
-		int shadow = !trace_scene(&shadow_frag, shadow_ray);
-
-		// Lambert shading
-		real_t lambert = rvec3_dot(base_frag.normal, light_dir);
-		lambert *= (real_t)shadow;
-
-		rvec3_copy(dst_col, base_frag.color);
-		rvec3_mul_scalar(dst_col, dst_col, lambert);
+		shade_fragment(dst_col, base_frag, ray);
 
 		// Reflection
-		/*
-		fragment_t reflect_frag;
-		ray_t reflect_ray;
+		if (base_frag.material_type == MATERIAL_TYPE_MIRROR) {
+			rvec3_t bias;
+			rvec3_copy(bias, base_frag.normal);
+			rvec3_mul_scalar(bias, bias, REAL(0.00001));
 
-		rvec3_copy(reflect_ray.origin, base_frag.position);
-		rvec3_add(reflect_ray.origin, reflect_ray.origin, bias);
+			fragment_t reflect_frag;
+			ray_t reflect_ray;
 
-		rvec3_t view_dir;
-		rvec3_copy(view_dir, ray.direction);
-		rvec3_mul_scalar(view_dir, view_dir, REAL(-1.0));
+			rvec3_copy(reflect_ray.origin, base_frag.position);
+			rvec3_add(reflect_ray.origin, reflect_ray.origin, bias);
 
-		rvec3_t incidence;
-		rvec3_reflect(incidence, view_dir, base_frag.normal);
-		rvec3_normalize(incidence);
+			rvec3_t view_dir;
+			rvec3_copy(view_dir, ray.direction);
 
-		rvec3_copy(reflect_ray.direction, incidence);
+			rvec3_t incidence;
+			rvec3_reflect(incidence, view_dir, base_frag.normal);
+			rvec3_normalize(incidence);
 
-		if (trace_scene(&reflect_frag, reflect_ray)) {
-			rvec3_copy(dst_col, reflect_frag.color);
+			rvec3_copy(reflect_ray.direction, incidence);
 
-			real_t lambert2 = rvec3_dot(reflect_frag.normal, light_dir);
-
-			rvec3_mul_scalar(dst_col, dst_col, lambert2);
+			if (trace_scene(&reflect_frag, reflect_ray)) {
+				shade_fragment(dst_col, reflect_frag, reflect_ray);
+			} else {
+				rvec3_copy(dst_col, (rvec3_t) {REAL(0.1), REAL(0.1), REAL(0.1)});
+			}
 		}
-		*/
 	}
 
 	//

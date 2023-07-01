@@ -22,6 +22,8 @@
 
 #include "real.h"
 
+#include <math.h>
+
 #define REAL_PI REAL(3.141592654)
 
 real_t real_min(real_t r, real_t min) {
@@ -32,8 +34,25 @@ real_t real_max(real_t r, real_t max) {
 	return r > max ? r : max;
 }
 
+// https://registry.khronos.org/OpenGL-Refpages/gl4/html/mod.xhtml
+real_t real_mod(real_t x, real_t y) {
+	return x - y * (real_t)real_floor(x / y);
+}
+
 real_t real_saturate(real_t r) {
 	return real_max(REAL(0.0), real_min(REAL(1.0), r));
+}
+
+real_t real_fract(real_t r) {
+	return r - (real_t)real_floor(r);
+}
+
+real_t real_floor(real_t r) {
+	return floor(r);
+}
+
+real_t real_ceil(real_t r) {
+	return ceil(r);
 }
 
 real_t real_to_radians(real_t r) {
