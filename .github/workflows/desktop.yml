@@ -1,0 +1,41 @@
+name: 🐧|🍎|🖥️ CI Matrix
+
+on: [ push, pull_request, workflow_dispatch ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  # The CMake configure and build commands are platform agnostic and should work equally
+  # well on Windows or Mac.  You can convert this to a matrix build if you need
+  # cross-platform coverage.
+  # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+  rt-everywhere:
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [ release, debug ]
+        os: [ macos-latest, windows-latest ]
+        include:
+          - os: macos-latest
+            artifact-name: macos-build
+
+          - os: windows-latest
+            artifact-name: windows-build
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - name: Configure CMake (macOS and Linux)
+        if: ${{ matrix.os != 'windows-latest' }}
+        run: |
+          cmake -B ${{github.workspace}}/build
+
+      - name: Build
+        # Build your program with the given configuration
+        run: cmake --build ${{github.workspace}}/build --config ${{ matrix.build_type }}
