@@ -20,59 +20,22 @@
 /* SOFTWARE.                                                                            */
 /****************************************************************************************/
 
-#ifndef RTEVERYWHERE_RT_EVERYWHERE_H
-#define RTEVERYWHERE_RT_EVERYWHERE_H
+#ifndef RTEVERYWHERE_CRAND_H
+#define RTEVERYWHERE_CRAND_H
 
-// Here we include all our common headers
-#include "math/real.h"
-#include "math/vectors.h"
-#include "math/matrices.h"
-#include "math/ray.h"
-#include "math/crand.h"
+#include "real.h"
 
-#include "shapes/sphere.h"
+#define CRAND_MAX 2147483647
 
-typedef struct viewport {
-	unsigned int width;
-	unsigned int height;
-} viewport_t;
+//
+// CRAND = Custom rand
+//
 
-typedef struct point {
-	unsigned int x;
-	unsigned int y;
-} point_t;
+// https://stackoverflow.com/questions/47191747/generating-random-numbers-without-using-cstdlib
+void crand_seed(unsigned long seed);
 
-typedef struct camera {
-	viewport_t viewport;
-	rvec3_t position;
-	rvec3_t rotation;
+long crand_next();
 
-	rmat4_t mat_v;
-	rmat4_t mat_p;
-	rmat4_t mat_vp_i;
-} camera_t;
+real_t crand_range(real_t min, real_t max);
 
-typedef enum MATERIAL_TYPE {
-	MATERIAL_TYPE_OPAQUE,
-	MATERIAL_TYPE_MIRROR
-} MATERIAL_TYPE_E;
-
-typedef struct fragment {
-	rvec3_t position;
-	rvec3_t normal;
-	rvec3_t albedo;
-    rvec3_t glow;
-	MATERIAL_TYPE_E material_type;
-} fragment_t;
-
-void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point);
-
-camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation);
-camera_t default_camera(viewport_t viewport);
-
-int trace_scene(fragment_t *p_fragment, ray_t ray);
-void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray);
-
-void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point);
-
-#endif
+#endif //RTEVERYWHERE_CRAND_H

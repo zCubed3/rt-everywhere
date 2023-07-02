@@ -32,6 +32,77 @@
 #define RT_EVERYWHERE_SAMPLES 1
 #endif
 
+
+#define CAMERA_FOV 45
+#define CAMERA_NEAR REAL(0.001)
+#define CAMERA_FAR REAL(1000.0)
+
+#define SPHERE_COUNT 64
+#define SPHERE_SIZE_MIN REAL(0.05)
+#define SPHERE_SIZE_MAX REAL(0.2)
+#define SPHERE_Z_OFFSET REAL(2.0)
+
+int spheres_generated = 0;
+sphere_t spheres[SPHERE_COUNT];
+
+void generate_spheres() {
+    int sphere_count = sizeof(spheres) / sizeof(sphere_t);
+
+    // Generate a batch of spheres that do not intersect
+    for (int s = 0; s < sphere_count; s++) {
+        sphere_t sphere;
+
+        real_t red = crand_range(REAL(0.0), REAL(1.0));
+        real_t green = crand_range(REAL(0.0), REAL(1.0));
+        real_t blue = crand_range(REAL(0.0), REAL(1.0));
+
+        rvec3_copy(sphere.color, (rvec3_t){red, green, blue});
+
+        sphere.radius = crand_range(SPHERE_SIZE_MIN, SPHERE_SIZE_MAX);
+        //sphere.radius = REAL(0.1);
+
+        real_t lift = sphere.radius / REAL(2.0);
+
+        int clear = 0;
+        rvec3_t position;
+
+        while (!clear) {
+            real_t x = crand_range(REAL(-2.0), REAL(2.0));
+            real_t z = crand_range(REAL(-2.0), REAL(2.0));
+
+            z += SPHERE_Z_OFFSET;
+
+            rvec3_t point = {x, 0, z};
+
+            clear = 1;
+            for (int p = s - 1; p >= 0; p--) {
+                sphere_t other = spheres[p];
+
+                // Planar distance
+                rvec3_t planar;
+
+                rvec3_copy(planar, other.origin);
+                planar[1] = 0;
+
+                rvec3_t vector;
+                rvec3_sub(vector, planar, point);
+
+                real_t gap = sphere.radius + other.radius;
+                real_t length = rvec3_length_sqr(vector);
+                if (length < gap * gap) {
+                    clear = 0;
+                    break;
+                }
+            }
+
+            rvec3_copy(position, (rvec3_t){x, lift, z});
+        }
+
+        rvec3_copy(sphere.origin, position);
+        spheres[s] = sphere;
+    }
+}
+
 void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point) {
 	// Note: When x == 0, x / width = 0, but x never hits width
 	// Therefore we must add half the texel size to x to account for this
@@ -57,7 +128,7 @@ camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
 	rmat4_mul(cam.mat_v, mat_translation, mat_rotation);
 
 	real_t aspect = (real_t)viewport.width / (real_t)viewport.height;
-	rmat4_perspective(cam.mat_p, REAL(90.0), aspect, REAL(0.01), REAL(100.0));
+	rmat4_perspective(cam.mat_p, CAMERA_FOV, aspect, CAMERA_NEAR, CAMERA_FAR);
 
 	rmat4_t mat_vp;
 
@@ -73,8 +144,8 @@ camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
 }
 
 camera_t default_camera(viewport_t viewport) {
-	rvec3_t origin = {0, 1, 2};
-	rvec3_t target = {0, REAL(0.25), 0};
+	rvec3_t origin = {0, 1, -2};
+	rvec3_t target = {0, REAL(0.0), SPHERE_Z_OFFSET};
 
 	rvec3_t direction;
 	rvec3_sub(direction, origin, target);
@@ -94,7 +165,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 	// Intersect the ground
 	const real_t GROUND_CHECKER_SIZE = REAL(2.0);
 
-	real_t closest_t = 100;
+	real_t closest_t = CAMERA_FAR;
 	real_t ground_t = -ray.origin[1] / ray.direction[1];
 	if (ground_t > 0 && ground_t < closest_t) {
 		closest_t = ground_t;
@@ -105,7 +176,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 
 		rvec3_copy(p_fragment->normal, (rvec3_t){0, 1, 0});
 
-		// Checkerboarding
+		// Checkerboard pattern
 		rvec3_t checker;
 		rvec3_copy(checker, p_fragment->position);
 
@@ -114,31 +185,44 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 
 		real_t mod = real_mod(checker[0] + real_mod(checker[2], REAL(2.0)), REAL(2.0));
 
+		rvec3_copy(p_fragment->albedo, RVEC3_RGB(0, 0, 0));
+
 		if (mod) {
-			rvec3_copy(p_fragment->color, (rvec3_t) {1, 1, 1});
+			rvec3_copy(p_fragment->albedo, RVEC3_RGB(255, 0, 137));
 		} else {
-			rvec3_copy(p_fragment->color, (rvec3_t) {REAL(0.1), REAL(0.1), REAL(0.1)});
+			rvec3_copy(p_fragment->albedo, RVEC3_RGB(5, 5, 5));
 		}
+
+		rvec3_copy(p_fragment->glow, p_fragment->albedo);
+		rvec3_mul_scalar(p_fragment->glow, p_fragment->glow, REAL(0.5));
 
 		hit = 1;
 	}
 
-	sphere_t sphere;
-	sphere_intersect_t intersect;
+	// If the spheres are not initialized, initialize then
+	if (!spheres_generated) {
+		generate_spheres();
+        spheres_generated = 1;
+	}
 
-	rvec3_copy(sphere.origin, (rvec3_t){0, REAL(0.25), 0});
-	sphere.radius = REAL(0.5);
+    int sphere_count = sizeof(spheres) / sizeof(sphere_t);
+	for (int s = 0; s < sphere_count; s++) {
+		sphere_t sphere = spheres[s];
+		sphere_intersect_t intersect;
 
-	if (sphere_ray_intersect(sphere, ray, &intersect)) {
-		if (intersect.distance < closest_t) {
-			closest_t = intersect.distance;
+		if (sphere_ray_intersect(sphere, ray, &intersect)) {
+			if (intersect.distance < closest_t) {
+				closest_t = intersect.distance;
 
-			rvec3_copy(p_fragment->position, intersect.point);
-			rvec3_copy(p_fragment->normal, intersect.normal);
-			rvec3_copy(p_fragment->color, (rvec3_t){1, 1, 1});
-			p_fragment->material_type = MATERIAL_TYPE_MIRROR;
+				rvec3_copy(p_fragment->position, intersect.point);
+				rvec3_copy(p_fragment->normal, intersect.normal);
+                rvec3_copy(p_fragment->albedo, sphere.color);
+                rvec3_copy(p_fragment->glow, (rvec3_t){0, 0, 0});
 
-			hit = 1;
+                p_fragment->material_type = MATERIAL_TYPE_MIRROR;
+
+				hit = 1;
+			}
 		}
 	}
 
@@ -146,7 +230,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 }
 
 void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
-	rvec3_t light_dir = {1, REAL(0.8), REAL(0.5)};
+	rvec3_t light_dir = {REAL(1.0), REAL(1.0), REAL(0.5)};
 	rvec3_normalize(light_dir);
 
 	rvec3_t bias;
@@ -168,8 +252,11 @@ void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
 	real_t lambert = rvec3_dot(fragment.normal, light_dir);
 	lambert *= (real_t)shadow;
 
-	rvec3_copy(dst_col, fragment.color);
+	rvec3_copy(dst_col, fragment.albedo);
 	rvec3_mul_scalar(dst_col, dst_col, lambert);
+
+	// Add the glow
+	rvec3_add(dst_col, dst_col, fragment.glow);
 }
 
 void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
@@ -235,7 +322,7 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 
 			// Reflection
 			if (base_frag.material_type == MATERIAL_TYPE_MIRROR) {
-				rvec3_t bias;
+                rvec3_t bias;
 				rvec3_copy(bias, base_frag.normal);
 				rvec3_mul_scalar(bias, bias, REAL(0.00001));
 
@@ -259,6 +346,8 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 				} else {
 					rvec3_copy(sample, (rvec3_t) {REAL(0.1), REAL(0.1), REAL(0.1)});
 				}
+
+                rvec3_mul(sample, sample, base_frag.albedo);
 			}
 		}
 

@@ -49,4 +49,6 @@ real_t real_ceil(real_t r);
 real_t real_to_radians(real_t r);
 real_t real_to_degrees(real_t r);
 
+real_t real_remap(real_t r, real_t min, real_t max);
+
 #endif //RTEVERYWHERE_REAL_H

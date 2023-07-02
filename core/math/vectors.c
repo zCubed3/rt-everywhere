@@ -45,12 +45,12 @@ void rvec3_copy_rvec4(rvec3_t dst, const rvec4_t src) {
 	dst[2] = src[2];
 }
 
+real_t rvec3_length_sqr(const rvec3_t vec) {
+	return rvec3_dot(vec, vec);
+}
+
 real_t rvec3_length(const rvec3_t vec) {
-	return (real_t)sqrt(
-		vec[0] * vec[0] +
-		vec[1] * vec[1] +
-		vec[2] * vec[2]
-	);
+	return (real_t)sqrt(rvec3_dot(vec, vec));
 }
 
 real_t rvec3_dot(const rvec3_t a, const rvec3_t b) {
@@ -97,6 +97,12 @@ void rvec3_sub(rvec3_t dst, const rvec3_t a, const rvec3_t b) {
 	dst[0] = a[0] - b[0];
 	dst[1] = a[1] - b[1];
 	dst[2] = a[2] - b[2];
+}
+
+void rvec3_mul(rvec3_t dst, const rvec3_t a, const rvec3_t b) {
+	dst[0] = a[0] * b[0];
+	dst[1] = a[1] * b[1];
+	dst[2] = a[2] * b[2];
 }
 
 void rvec3_mul_scalar(rvec3_t dst, const rvec3_t a, real_t s) {

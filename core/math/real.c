@@ -22,6 +22,7 @@
 
 #include "real.h"
 
+// TODO: Avoid system math library for exotic platforms?
 #include <math.h>
 
 #define REAL_PI REAL(3.141592654)
@@ -61,4 +62,12 @@ real_t real_to_radians(real_t r) {
 
 real_t real_to_degrees(real_t r) {
 	return r * (REAL(180.0) / REAL_PI);
+}
+
+// This assumes r is between 0 - 1
+real_t real_remap(real_t r, real_t min, real_t max) {
+    real_t diff = max - min;
+    real_t fac = diff * r;
+
+    return fac + min;
 }

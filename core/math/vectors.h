@@ -32,10 +32,13 @@ typedef real_t rvec4_t[4];
 //
 // rvec3_t
 //
+#define RVEC3_RGB(R, G, B) ((rvec3_t){(real_t)R / REAL(255.0), (real_t)G / REAL(255.0), (real_t)B / REAL(255.0)})
+
 void rvec3_copy(rvec3_t dst, const rvec3_t src);
 void rvec3_copy_scalar(rvec3_t dst, real_t s);
 void rvec3_copy_rvec4(rvec3_t dst, const rvec4_t src);
 
+real_t rvec3_length_sqr(const rvec3_t vec);
 real_t rvec3_length(const rvec3_t vec);
 real_t rvec3_dot(const rvec3_t a, const rvec3_t b);
 
@@ -46,8 +49,11 @@ void rvec3_reflect(rvec3_t dst, const rvec3_t incoming, const rvec3_t normal);
 
 void rvec3_add(rvec3_t dst, const rvec3_t a, const rvec3_t b);
 void rvec3_sub(rvec3_t dst, const rvec3_t a, const rvec3_t b);
+void rvec3_mul(rvec3_t dst, const rvec3_t a, const rvec3_t b);
 
 void rvec3_mul_scalar(rvec3_t dst, const rvec3_t a, real_t s);
+
+void rvec3_hsv_color(rvec3_t dst, real_t hue, real_t saturation, real_t value);
 
 //
 // rvec4_t

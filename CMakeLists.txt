@@ -13,6 +13,7 @@ set(RT_EVERYWHERE_SOURCES
     "core/math/real.c"
     "core/math/vectors.c"
     "core/math/matrices.c"
+    "core/math/crand.c"
 
     "core/shapes/sphere.c"
 
