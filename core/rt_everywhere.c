@@ -62,6 +62,12 @@ void generate_spheres() {
         sphere.radius = crand_range(SPHERE_SIZE_MIN, SPHERE_SIZE_MAX);
         //sphere.radius = REAL(0.1);
 
+        if (crand_range(0, 1) > 0.5) {
+            sphere.type = MATERIAL_TYPE_MIRROR;
+        } else {
+            sphere.type = MATERIAL_TYPE_OPAQUE;
+        }
+
         real_t lift = sphere.radius;
 
         int clear = 0;
@@ -220,7 +226,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
                 rvec3_copy(p_fragment->albedo, sphere.color);
                 rvec3_copy(p_fragment->glow, (rvec3_t){0, 0, 0});
 
-                p_fragment->material_type = MATERIAL_TYPE_MIRROR;
+                p_fragment->material_type = sphere.type;
 
 				hit = 1;
 			}
@@ -231,12 +237,12 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 }
 
 void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
-	rvec3_t light_dir = {REAL(1.0), REAL(1.0), REAL(0.5)};
+	rvec3_t light_dir = {REAL(1.0), REAL(1.0), REAL(-0.5)};
 	rvec3_normalize(light_dir);
 
 	rvec3_t bias;
 	rvec3_copy(bias, fragment.normal);
-	rvec3_mul_scalar(bias, bias, REAL(0.00001));
+	rvec3_mul_scalar(bias, bias, REAL(0.001));
 
 	// Shadowing
 	fragment_t shadow_frag;

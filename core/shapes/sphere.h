@@ -31,6 +31,7 @@ typedef struct sphere {
     real_t radius;
     rvec3_t origin;
     rvec3_t color;
+    int type; // Material type
 } sphere_t;
 
 typedef struct sphere_intersect {
