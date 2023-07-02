@@ -33,6 +33,11 @@ if (APPLE)
     set(RT_EVERYWHERE_HARNESS macOSHarness)
 endif()
 
+if (NINTENDO_3DS)
+    add_subdirectory(platforms/n3ds)
+    set(RT_EVERYWHERE_HARNESS N3DSHarness)
+endif()
+
 add_executable(RTEverywhere ${RT_EVERYWHERE_TYPE} ${RT_EVERYWHERE_SOURCES})
 target_link_libraries(RTEverywhere PUBLIC ${RT_EVERYWHERE_HARNESS})
 
@@ -43,5 +48,10 @@ endif()
 if (APPLE)
     set_target_properties(RTEverywhere PROPERTIES MACOSX_BUNDLE TRUE)
     target_link_libraries(RTEverywhere PUBLIC "-framework Foundation" "-framework Cocoa")
+    target_compile_definitions(RTEverywhere PUBLIC "RTEVERYWHERE_FLIP_Y")
+endif()
+
+if (NINTENDO_3DS)
+    ctr_create_3dsx(RTEverywhere)
     target_compile_definitions(RTEverywhere PUBLIC "RTEVERYWHERE_FLIP_Y")
 endif()
