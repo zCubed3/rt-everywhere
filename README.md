@@ -11,6 +11,6 @@
 | Windows (Win32) | Complete (CMake) |
 | macOS           | Complete (CMake) |
 | Unix-like (X11) | TODO             |
-| Nintendo 3DS    | TODO             |
+| Nintendo 3DS    | Complete (CMake) |
 | Nintendo Wii    | TODO             |
 | PS Vita         | TODO             |
