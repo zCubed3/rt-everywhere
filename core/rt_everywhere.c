@@ -39,8 +39,8 @@
 #define CAMERA_FAR REAL(1000.0)
 
 #define SPHERE_COUNT 64
-#define SPHERE_SIZE_MIN REAL(0.05)
-#define SPHERE_SIZE_MAX REAL(0.2)
+#define SPHERE_SIZE_MIN REAL(0.001)
+#define SPHERE_SIZE_MAX REAL(0.3)
 #define SPHERE_Z_OFFSET REAL(2.0)
 
 int spheres_generated = 0;
@@ -62,7 +62,7 @@ void generate_spheres() {
         sphere.radius = crand_range(SPHERE_SIZE_MIN, SPHERE_SIZE_MAX);
         //sphere.radius = REAL(0.1);
 
-        real_t lift = sphere.radius / REAL(2.0);
+        real_t lift = sphere.radius;
 
         int clear = 0;
         rvec3_t position;

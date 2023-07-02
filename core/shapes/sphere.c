@@ -55,9 +55,10 @@ int sphere_ray_intersect(sphere_t sphere, ray_t ray, sphere_intersect_t* interse
 		rvec3_normalize(intersect->normal);
 
 		// Then the travel
-		rvec3_t travel;
-		rvec3_sub(travel, intersect->point, ray.origin);
-		intersect->distance = rvec3_length(travel);
+		//rvec3_t travel;
+		//rvec3_sub(travel, intersect->point, ray.origin);
+		//intersect->distance = rvec3_length(travel);
+        intersect->distance = t;
 
 		return 1;
 	}
