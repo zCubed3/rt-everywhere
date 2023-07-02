@@ -32,6 +32,7 @@
 #define RT_EVERYWHERE_SAMPLES 1
 #endif
 
+#define SKY_COLOR RVEC3_RGB(51, 0, 255)
 
 #define CAMERA_FOV 45
 #define CAMERA_NEAR REAL(0.001)
@@ -270,7 +271,7 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 	// Clear color
 	for (int s = 0; s < RT_EVERYWHERE_SAMPLES; s++) {
 		rvec3_t sample;
-		rvec3_copy(sample, (rvec3_t) {REAL(0.1), REAL(0.1), REAL(0.1)});
+		rvec3_copy(sample, SKY_COLOR);
 
 		// Set up the base ray
 		// It's jittered at a subpixel level when using MSAA
@@ -344,7 +345,7 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 				if (trace_scene(&reflect_frag, reflect_ray)) {
 					shade_fragment(sample, reflect_frag, reflect_ray);
 				} else {
-					rvec3_copy(sample, (rvec3_t) {REAL(0.1), REAL(0.1), REAL(0.1)});
+					rvec3_copy(sample, SKY_COLOR);
 				}
 
                 rvec3_mul(sample, sample, base_frag.albedo);
