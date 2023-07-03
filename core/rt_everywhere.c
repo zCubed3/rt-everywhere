@@ -327,7 +327,7 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 			if (base_frag.material_type == MATERIAL_TYPE_MIRROR) {
                 rvec3_t bias;
 				rvec3_copy(bias, base_frag.normal);
-				rvec3_mul_scalar(bias, bias, REAL(0.00001));
+				rvec3_mul_scalar(bias, bias, REAL(0.001));
 
 				fragment_t reflect_frag;
 				ray_t reflect_ray;
