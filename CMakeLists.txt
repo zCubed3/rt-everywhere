@@ -40,6 +40,11 @@ if (NOT DEFINED RT_EVERYWHERE_PLATFORM)
     if (NINTENDO_3DS)
         set(RT_EVERYWHERE_PLATFORM "NINTENDO_3DS")
     endif()
+
+    if (NOT DEFINED RT_EVERYWHERE_PLATFORM)
+        message("No native harness found for current platform! Using SDL2 harness!")
+        set(RT_EVERYWHERE_PLATFORM "SDL2")
+    endif()
 endif()
 
 message("RT Everywhere platform = ${RT_EVERYWHERE_PLATFORM}")
