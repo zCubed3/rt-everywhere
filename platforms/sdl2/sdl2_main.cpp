@@ -20,24 +20,33 @@
 /* SOFTWARE.                                                                            */
 /****************************************************************************************/
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
 #include <SDL.h>
 
 #include <rt_everywhere.h>
 
+#ifdef RT_HARNESS_SDL2_IMGUI
+#include <imgui.h>
+#include <backends/imgui_impl_sdl2.h>
+#include <backends/imgui_impl_sdlrenderer2.h>
+#endif
+
+int pixels_rendered = 0;
+int pixel_count = 1;
 int thread_alive = 1;
 int should_render = 0;
 
 SDL_Rect texture_rect;
 SDL_Texture* texture = NULL;
+SDL_Thread* render_thread = NULL;
 
 viewport_t viewport = {256, 256};
 camera_t camera;
 
 int render_loop(void* data) {
-	uint8_t *pixels = 0;
+	uint8_t *pixels = NULL;
 	int pitch;
 
 	if (texture == NULL) {
@@ -47,26 +56,32 @@ int render_loop(void* data) {
 
 	SDL_LockTexture(texture, NULL, (void **) &pixels, &pitch);
 
-	//printf("Texture is %i by %i\n", texture_rect.w, texture_rect.h);
-	//printf("Viewport is %i by %i\n", viewport.width, viewport.height);
-	//printf("Pitch is %i (stride is %i)\n", pitch, pitch);
+	pixel_count = texture_rect.w * texture_rect.h;
+	pixels_rendered = 0;
 
 	for (int y = 0; y < texture_rect.h; y++) {
 		for (int x = 0; x < texture_rect.w; x++) {
 			int index = (y * texture_rect.w * 4) + (x * 4);
 
 			rvec3_t color;
-			point_t point = {x, y};
+			point_t point;
+			point.x = x;
+			point.y = y;
+
 			trace_pixel(color, camera, point);
 
 			pixels[index + 2] = color[0] * 255;
 			pixels[index + 1] = color[1] * 255;
 			pixels[index + 0] = color[2] * 255;
+
+			pixels_rendered++;
 		}
 	}
 
 	SDL_UnlockTexture(texture);
 	should_render = 0;
+
+	render_thread = NULL;
 
 	return 0;
 }
@@ -78,8 +93,8 @@ int main(int argc, char** argv) {
 		"RT Everywhere (SDL2)",
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
-		256,
-		256,
+		800,
+		600,
 		SDL_WINDOW_RESIZABLE
 	);
 
@@ -95,14 +110,23 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+#ifdef RT_HARNESS_SDL2_IMGUI
+	ImGuiContext *imgui_context = ImGui::CreateContext();
+	ImGui::SetCurrentContext(imgui_context);
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+	ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
+	ImGui_ImplSDLRenderer2_Init(renderer);
+#endif
+
 	camera = default_camera(viewport);
 
 	SDL_Event event;
 	int run = 1;
 
 	int recreate_texture = 1;
-
-	SDL_Thread* render_thread = NULL;
 
 	while (run) {
 		while (SDL_PollEvent(&event)) {
@@ -116,6 +140,10 @@ int main(int argc, char** argv) {
 					recreate_texture = 1;
 				}
 			}
+
+#ifdef RT_HARNESS_SDL2_IMGUI
+			ImGui_ImplSDL2_ProcessEvent(&event);
+#endif
 		}
 
 		if (should_render && render_thread == NULL) {
@@ -126,8 +154,6 @@ int main(int argc, char** argv) {
 			if (render_thread != NULL) {
 				int status;
 				SDL_WaitThread(render_thread, &status);
-
-				render_thread = NULL;
 			}
 
 			SDL_DestroyTexture(texture);
@@ -150,7 +176,8 @@ int main(int argc, char** argv) {
 			texture_rect.w = width;
 			texture_rect.h = height;
 
-			viewport = (viewport_t){width, height};
+			viewport.width = width;
+			viewport.height = height;
 
 			camera = default_camera(viewport);
 			camera.samples = CAMERA_SAMPLES_FOUR;
@@ -159,10 +186,43 @@ int main(int argc, char** argv) {
 			should_render = 1;
 		}
 
+#ifdef RT_HARNESS_SDL2_IMGUI
+		ImGui_ImplSDL2_NewFrame(window);
+		ImGui_ImplSDLRenderer2_NewFrame();
+		ImGui::NewFrame();
+#endif
+
+#ifdef RT_HARNESS_SDL2_IMGUI
+		ImGui::Begin("Render");
+
+		float frac = (float)pixels_rendered / (float)pixel_count;
+		ImGui::ProgressBar(frac);
+
+		bool msaa_enabled = camera.samples == CAMERA_SAMPLES_FOUR;
+		ImGui::Checkbox("MSAA?", &msaa_enabled);
+
+		if (!msaa_enabled) {
+			camera.samples = CAMERA_SAMPLES_ONE;
+		} else {
+			camera.samples = CAMERA_SAMPLES_FOUR;
+		}
+
+		if (ImGui::Button("Re-render")) {
+			should_render = 1;
+		}
+
+		ImGui::End();
+#endif
+
 		SDL_RenderClear(renderer);
 
 		//SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
 		SDL_RenderCopy(renderer, texture, NULL, NULL);
+
+#ifdef RT_HARNESS_SDL2_IMGUI
+		ImGui::Render();
+		ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+#endif
 
 		SDL_RenderPresent(renderer);
 	}
