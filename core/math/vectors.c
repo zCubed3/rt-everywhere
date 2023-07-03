@@ -105,10 +105,34 @@ void rvec3_mul(rvec3_t dst, const rvec3_t a, const rvec3_t b) {
 	dst[2] = a[2] * b[2];
 }
 
+void rvec3_div(rvec3_t dst, const rvec3_t a, const rvec3_t b) {
+	dst[0] = a[0] / b[0];
+	dst[1] = a[1] / b[1];
+	dst[2] = a[2] / b[2];
+}
+
+void rvec3_add_scalar(rvec3_t dst, const rvec3_t a, real_t s) {
+	dst[0] = a[0] + s;
+	dst[1] = a[1] + s;
+	dst[2] = a[2] + s;
+}
+
+void rvec3_sub_scalar(rvec3_t dst, const rvec3_t a, real_t s) {
+	dst[0] = a[0] - s;
+	dst[1] = a[1] - s;
+	dst[2] = a[2] - s;
+}
+
 void rvec3_mul_scalar(rvec3_t dst, const rvec3_t a, real_t s) {
 	dst[0] = a[0] * s;
 	dst[1] = a[1] * s;
 	dst[2] = a[2] * s;
+}
+
+void rvec3_div_scalar(rvec3_t dst, const rvec3_t a, real_t s) {
+	dst[0] = a[0] / s;
+	dst[1] = a[1] / s;
+	dst[2] = a[2] / s;
 }
 
 //

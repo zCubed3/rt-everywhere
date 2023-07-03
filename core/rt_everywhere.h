@@ -23,6 +23,10 @@
 #ifndef RTEVERYWHERE_RT_EVERYWHERE_H
 #define RTEVERYWHERE_RT_EVERYWHERE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Here we include all our common headers
 #include "math/real.h"
 #include "math/vectors.h"
@@ -60,7 +64,8 @@ typedef struct camera {
 } camera_t;
 
 typedef enum MATERIAL_TYPE {
-	MATERIAL_TYPE_OPAQUE,
+	MATERIAL_TYPE_PLASTIC,
+	MATERIAL_TYPE_MATTE,
 	MATERIAL_TYPE_MIRROR
 } MATERIAL_TYPE_E;
 
@@ -69,6 +74,10 @@ typedef struct fragment {
 	rvec3_t normal;
 	rvec3_t albedo;
     rvec3_t glow;
+
+	real_t roughness;
+	real_t metallic;
+
 	MATERIAL_TYPE_E material_type;
 } fragment_t;
 
@@ -81,5 +90,9 @@ int trace_scene(fragment_t *p_fragment, ray_t ray);
 void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray);
 
 void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif

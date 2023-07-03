@@ -49,11 +49,15 @@ real_t real_fract(real_t r) {
 }
 
 real_t real_floor(real_t r) {
-	return floor(r);
+	return (real_t)floor(r);
 }
 
 real_t real_ceil(real_t r) {
-	return ceil(r);
+	return (real_t)ceil(r);
+}
+
+real_t real_pow(real_t r, real_t e) {
+	return (real_t)pow(r, e);
 }
 
 real_t real_to_radians(real_t r) {

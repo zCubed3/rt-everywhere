@@ -25,6 +25,7 @@
 #include <math.h>
 
 #define SKY_COLOR RVEC3_RGB(51, 0, 255)
+#define AMBIENT_COLOR RVEC3_RGB(44, 44, 44)
 
 #define CAMERA_FOV 45
 #define CAMERA_NEAR REAL(0.001)
@@ -57,7 +58,7 @@ void generate_spheres() {
         if (crand_range(0, 1) > 0.5) {
             sphere.type = MATERIAL_TYPE_MIRROR;
         } else {
-            sphere.type = MATERIAL_TYPE_OPAQUE;
+            sphere.type = MATERIAL_TYPE_PLASTIC;
         }
 
         real_t lift = sphere.radius;
@@ -159,7 +160,7 @@ camera_t default_camera(viewport_t viewport) {
 int trace_scene(fragment_t *p_fragment, ray_t ray) {
 	int hit = 0;
 
-	p_fragment->material_type = MATERIAL_TYPE_OPAQUE;
+	p_fragment->material_type = MATERIAL_TYPE_PLASTIC;
 
 	// Intersect the ground
 	const real_t GROUND_CHECKER_SIZE = REAL(2.0);
@@ -195,6 +196,9 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 		rvec3_copy(p_fragment->glow, p_fragment->albedo);
 		rvec3_mul_scalar(p_fragment->glow, p_fragment->glow, REAL(0.5));
 
+		// The ground is a mirror
+		p_fragment->material_type = MATERIAL_TYPE_MIRROR;
+
 		hit = 1;
 	}
 
@@ -216,7 +220,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 				rvec3_copy(p_fragment->position, intersect.point);
 				rvec3_copy(p_fragment->normal, intersect.normal);
                 rvec3_copy(p_fragment->albedo, sphere.color);
-                rvec3_copy(p_fragment->glow, (rvec3_t){0, 0, 0});
+                rvec3_copy(p_fragment->glow, RVEC3_RGB(0, 0, 0));
 
                 p_fragment->material_type = sphere.type;
 
@@ -229,12 +233,19 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 }
 
 void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
+	// Clear the previous shading
+	rvec3_copy(dst_col, RVEC3_RGB(0, 0, 0));
+
 	rvec3_t light_dir = {REAL(1.0), REAL(1.0), REAL(-0.5)};
 	rvec3_normalize(light_dir);
 
 	rvec3_t bias;
 	rvec3_copy(bias, fragment.normal);
 	rvec3_mul_scalar(bias, bias, REAL(0.001));
+
+	// View direction
+	rvec3_t view_dir;
+	rvec3_mul_scalar(view_dir, ray.direction, REAL(-1.0));
 
 	// Shadowing
 	fragment_t shadow_frag;
@@ -247,12 +258,63 @@ void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
 
 	int shadow = !trace_scene(&shadow_frag, shadow_ray);
 
+	//
 	// Lambert shading
-	real_t lambert = rvec3_dot(fragment.normal, light_dir);
+	//
+	real_t lambert = real_saturate(rvec3_dot(fragment.normal, light_dir));
 	lambert *= (real_t)shadow;
 
-	rvec3_copy(dst_col, fragment.albedo);
-	rvec3_mul_scalar(dst_col, dst_col, lambert);
+	//
+	// Blinn-phong
+	//
+	rvec3_t halfway;
+	rvec3_add(halfway, view_dir, light_dir);
+	rvec3_normalize(halfway);
+
+	real_t blinn_phong = real_saturate(rvec3_dot(fragment.normal, halfway));
+	blinn_phong = real_pow(blinn_phong, REAL(64.0));
+	blinn_phong *= (real_t)shadow;
+
+	//
+	// Ambient term
+	//
+	rvec3_t ambient;
+	rvec3_copy(ambient, AMBIENT_COLOR);
+	rvec3_mul(ambient, ambient, fragment.albedo);
+
+	//
+	// Final shading
+	//
+	real_t direct_fac = lambert;
+	real_t specular_fac = blinn_phong;
+
+	// Mirrors have no diffuse and ambient component
+	// But the direct factor is specular!
+	if (fragment.material_type == MATERIAL_TYPE_MIRROR) {
+		direct_fac = blinn_phong;
+		specular_fac = REAL(0.0);
+	}
+
+	// Matte has no specular
+	if (fragment.material_type == MATERIAL_TYPE_MATTE) {
+		specular_fac = REAL(0.0);
+	}
+
+	rvec3_t direct;
+	rvec3_t specular;
+
+	rvec3_copy(direct, fragment.albedo);
+	rvec3_copy(specular, RVEC3_RGB(255, 255, 255));
+
+	rvec3_mul_scalar(direct, direct, direct_fac);
+	rvec3_mul_scalar(specular, specular, specular_fac);
+
+	rvec3_add(dst_col, dst_col, direct);
+	rvec3_add(dst_col, dst_col, specular);
+
+	if (fragment.material_type != MATERIAL_TYPE_MIRROR) {
+		rvec3_add(dst_col, dst_col, ambient);
+	}
 
 	// Add the glow
 	rvec3_add(dst_col, dst_col, fragment.glow);
@@ -324,6 +386,9 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 			shade_fragment(sample, base_frag, ray);
 
 			// Reflection
+			rvec3_t reflection;
+			rvec3_copy(reflection, RVEC3_RGB(0, 0, 0));
+
 			if (base_frag.material_type == MATERIAL_TYPE_MIRROR) {
                 rvec3_t bias;
 				rvec3_copy(bias, base_frag.normal);
@@ -345,13 +410,15 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 				rvec3_copy(reflect_ray.direction, incidence);
 
 				if (trace_scene(&reflect_frag, reflect_ray)) {
-					shade_fragment(sample, reflect_frag, reflect_ray);
+					shade_fragment(reflection, reflect_frag, reflect_ray);
 				} else {
-					rvec3_copy(sample, SKY_COLOR);
+					rvec3_copy(reflection, SKY_COLOR);
 				}
 
-                rvec3_mul(sample, sample, base_frag.albedo);
+                rvec3_mul(reflection, reflection, base_frag.albedo);
 			}
+
+			rvec3_add(sample, sample, reflection);
 		}
 
 		rvec3_mul_scalar(sample, sample, REAL(1.0) / (real_t)samples);

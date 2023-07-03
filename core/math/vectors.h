@@ -50,8 +50,12 @@ void rvec3_reflect(rvec3_t dst, const rvec3_t incoming, const rvec3_t normal);
 void rvec3_add(rvec3_t dst, const rvec3_t a, const rvec3_t b);
 void rvec3_sub(rvec3_t dst, const rvec3_t a, const rvec3_t b);
 void rvec3_mul(rvec3_t dst, const rvec3_t a, const rvec3_t b);
+void rvec3_div(rvec3_t dst, const rvec3_t a, const rvec3_t b);
 
+void rvec3_add_scalar(rvec3_t dst, const rvec3_t a, real_t s);
+void rvec3_sub_scalar(rvec3_t dst, const rvec3_t a, real_t s);
 void rvec3_mul_scalar(rvec3_t dst, const rvec3_t a, real_t s);
+void rvec3_div_scalar(rvec3_t dst, const rvec3_t a, real_t s);
 
 void rvec3_hsv_color(rvec3_t dst, real_t hue, real_t saturation, real_t value);
 
