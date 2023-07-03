@@ -42,6 +42,11 @@ typedef struct point {
 	unsigned int y;
 } point_t;
 
+typedef enum CAMERA_SAMPLES {
+	CAMERA_SAMPLES_ONE,
+	CAMERA_SAMPLES_FOUR
+} CAMERA_SAMPLES_E;
+
 typedef struct camera {
 	viewport_t viewport;
 	rvec3_t position;
@@ -50,6 +55,8 @@ typedef struct camera {
 	rmat4_t mat_v;
 	rmat4_t mat_p;
 	rmat4_t mat_vp_i;
+
+	CAMERA_SAMPLES_E samples;
 } camera_t;
 
 typedef enum MATERIAL_TYPE {

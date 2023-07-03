@@ -41,6 +41,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			viewport.height = HIWORD(lParam);
 
 			camera = default_camera(viewport);
+			camera.samples = CAMERA_SAMPLES_FOUR;
 
 			return DefWindowProc(hwnd, uMsg, wParam, lParam);
 		}

@@ -24,14 +24,6 @@
 
 #include <math.h>
 
-#define RT_EVERYWHERE_MSAA
-
-#ifdef RT_EVERYWHERE_MSAA
-#define RT_EVERYWHERE_SAMPLES 4
-#else
-#define RT_EVERYWHERE_SAMPLES 1
-#endif
-
 #define SKY_COLOR RVEC3_RGB(51, 0, 255)
 
 #define CAMERA_FOV 45
@@ -269,13 +261,17 @@ void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
 void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 	rvec3_copy(dst_col, (rvec3_t) {0, 0, 0});
 
-#ifdef RT_EVERYWHERE_MSAA
 	real_t sub_tex_x = REAL(1.0) / (real_t)camera.viewport.width;
 	real_t sub_tex_y = REAL(1.0) / (real_t)camera.viewport.height;
-#endif
+
+	int samples = 1;
+
+	if (camera.samples == CAMERA_SAMPLES_FOUR) {
+		samples = 4;
+	}
 
 	// Clear color
-	for (int s = 0; s < RT_EVERYWHERE_SAMPLES; s++) {
+	for (int s = 0; s < samples; s++) {
 		rvec3_t sample;
 		rvec3_copy(sample, SKY_COLOR);
 
@@ -284,19 +280,19 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 		rvec2_t view_coord;
 		screen_to_viewport(view_coord, camera.viewport, point);
 
-#ifdef RT_EVERYWHERE_MSAA
-		if (s <= 1) {
-			view_coord[0] += sub_tex_x * REAL(0.5);
-		} else {
-			view_coord[0] -= sub_tex_x * REAL(0.5);
-		}
+		if (samples == 4) {
+			if (s <= 1) {
+				view_coord[0] += sub_tex_x * REAL(0.5);
+			} else {
+				view_coord[0] -= sub_tex_x * REAL(0.5);
+			}
 
-		if (s % 2 == 0) {
-			view_coord[1] += sub_tex_y * REAL(0.5);
-		} else {
-			view_coord[1] -= sub_tex_y * REAL(0.5);
+			if (s % 2 == 0) {
+				view_coord[1] += sub_tex_y * REAL(0.5);
+			} else {
+				view_coord[1] -= sub_tex_y * REAL(0.5);
+			}
 		}
-#endif
 
 		ray_t ray;
 
@@ -358,7 +354,7 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 			}
 		}
 
-		rvec3_mul_scalar(sample, sample, REAL(1.0) / (real_t)RT_EVERYWHERE_SAMPLES);
+		rvec3_mul_scalar(sample, sample, REAL(1.0) / (real_t)samples);
 		rvec3_add(dst_col, dst_col, sample);
 	}
 
