@@ -27,25 +27,7 @@
 
 #include <rt_everywhere.h>
 
-int main(int argc, char** argv) {
-	gfxInitDefault();
-
-	consoleInit(GFX_BOTTOM, NULL);
-
-	uint16_t width;
-	uint16_t height;
-
-	gfxSetDoubleBuffering(GFX_TOP, false);
-	uint8_t *framebuffer = gfxGetFramebuffer(GFX_TOP, GFX_LEFT, &width, &height);
-
-	printf("Welcome to RT Everywhere!\n");
-
-	// For some reason the 3DS framebuffer is rotated
-	// I have no clue why this is!
-	// NOTE: The 3DS Framebuffer is BGR
-	viewport_t viewport = {height, width};
-	camera_t camera = default_camera(viewport);
-
+void render(camera_t camera, uint16_t width, uint16_t height, uint8_t framebuffer) {
 	for (uint16_t y = 0; y < height; y++) {
 		int column = y * width * 3;
 		for (uint16_t x = 0; x < width; x++) {
@@ -61,6 +43,30 @@ int main(int argc, char** argv) {
 			framebuffer[offset + 2] = color[0] * 0xFF;
 		}
 	}
+}
+
+int main(int argc, char** argv) {
+	gfxInitDefault();
+
+	consoleInit(GFX_BOTTOM, NULL);
+
+	uint16_t width;
+	uint16_t height;
+
+	gfxSetDoubleBuffering(GFX_TOP, false);
+	uint8_t *framebuffer = gfxGetFramebuffer(GFX_TOP, GFX_LEFT, &width, &height);
+
+	printf("Welcome to RT Everywhere!\n");
+
+	printf("NOTE: When rendering the 3DS will become unresponsive!\n");
+
+	// For some reason the 3DS framebuffer is rotated
+	// I have no clue why this is!
+	// NOTE: The 3DS Framebuffer is BGR
+	viewport_t viewport = {height, width};
+	camera_t camera = default_camera(viewport);
+
+	render(camera, width, height, framebuffer);
 
 	printf("Press START to exit!\n");
 
