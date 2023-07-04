@@ -117,7 +117,7 @@ if (${RT_EVERYWHERE_PLATFORM} STREQUAL NINTENDO_3DS)
     )
 
     ctr_create_3dsx(RTEverywhere SMDH "${SMDH_FILE}" OUTPUT "${3DSX_FILE}")
-    target_compile_definitions(RTEverywhere PUBLIC "RTEVERYWHERE_FLIP_Y")
+    target_compile_definitions(RTEverywhere PUBLIC "RTEVERYWHERE_FLIP_Y" "RTEVERYWHERE_SIMPLE_SCENE")
 endif()
 
 if (APPLE)

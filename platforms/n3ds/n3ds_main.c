@@ -27,10 +27,33 @@
 
 #include <rt_everywhere.h>
 
-void render(camera_t camera, uint16_t width, uint16_t height, uint8_t *framebuffer) {
-	for (uint16_t y = 0; y < height; y++) {
+#define THREAD_COUNT 4
+#define THREAD_STACK_SIZE (4 * 1024)
+
+uint16_t width;
+uint16_t height;
+
+volatile int kill_threads = 0;
+volatile uint8_t *framebuffer;
+
+Thread threads[THREAD_COUNT];
+camera_t camera;
+
+typedef struct render_rect {
+	int x;
+	int y;
+	int width;
+	int height;
+} render_rect_t;
+
+void render(render_rect_t rect) {
+	for (int y = rect.y; y < rect.y + rect.height; y++) {
 		int column = y * width * 3;
-		for (uint16_t x = 0; x < width; x++) {
+		for (int x = rect.x; x < rect.x + rect.width; x++) {
+			if (kill_threads == 1) {
+				return;
+			}
+
 			int offset = column + (x * 3);
 
 			point_t point = {y, x};
@@ -45,30 +68,75 @@ void render(camera_t camera, uint16_t width, uint16_t height, uint8_t *framebuff
 	}
 }
 
+void thread_main(void* arg) {
+	int num = (int)arg;
+
+	// We need to divide our framebuffer into equal sections
+	int per_x = width / 2;
+	int per_y = height / 2;
+
+	render_rect_t rect;
+
+	if (num == 1 || num == 3) {
+		rect.x = per_x;
+	} else {
+		rect.x = 0;
+	}
+
+	if (num == 1 || num == 2) {
+		rect.y = per_y;
+	} else {
+		rect.y = 0;
+	}
+
+	rect.width = per_x;
+	rect.height = per_y;
+
+	render(rect);
+}
+
+void await_threads() {
+	for (int t = 0; t < THREAD_COUNT; t++) {
+		threadJoin(threads[t], U64_MAX);
+		threadFree(threads[t]);
+	}
+}
+
+void spawn_threads() {
+	int32_t priority = 0;
+	svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
+
+	for (int i = 0; i < THREAD_COUNT; i++) {
+		void* arg = (void*)i;
+		threads[i] = threadCreate(thread_main, arg, THREAD_STACK_SIZE, priority + 1, -2, false);
+	}
+}
+
 int main(int argc, char** argv) {
 	gfxInitDefault();
 
 	consoleInit(GFX_BOTTOM, NULL);
 
-	uint16_t width;
-	uint16_t height;
-
 	gfxSetDoubleBuffering(GFX_TOP, false);
-	uint8_t *framebuffer = gfxGetFramebuffer(GFX_TOP, GFX_LEFT, &width, &height);
 
-	printf("Welcome to RT Everywhere!\n");
+	printf("Welcome to RT Everywhere (3DS Port)!\n\n");
 
-	printf("NOTE: When rendering the 3DS will become unresponsive!\n");
+	printf("NOTE: The 3DS may become unresponsive!\n");
+	printf("NOTE: New 3DS models will be faster!\n");
 
 	// For some reason the 3DS framebuffer is rotated
 	// I have no clue why this is!
 	// NOTE: The 3DS Framebuffer is BGR
+	framebuffer = gfxGetFramebuffer(GFX_TOP, GFX_LEFT, &width, &height);
+
 	viewport_t viewport = {height, width};
-	camera_t camera = default_camera(viewport);
+	camera = default_camera(viewport);
 
-	render(camera, width, height, framebuffer);
+	printf("\nCONTROLS:\n");
+	printf("SELECT = Toggle MSAA\n");
+	printf("START = Exit\n");
 
-	printf("Press START to exit!\n");
+	spawn_threads();
 
 	while (aptMainLoop()) {
 		hidScanInput();
@@ -77,6 +145,26 @@ int main(int argc, char** argv) {
 
 		if (key_mask & KEY_START) {
 			break;
+		}
+
+		int dirty_image = 0;
+
+		if (key_mask & KEY_SELECT) {
+			if (camera.samples == CAMERA_SAMPLES_ONE) {
+				camera.samples = CAMERA_SAMPLES_FOUR;
+			} else {
+				camera.samples = CAMERA_SAMPLES_ONE;
+			}
+
+			dirty_image = 1;
+		}
+
+		if (dirty_image) {
+			kill_threads = 1;
+			await_threads();
+			kill_threads = 0;
+
+			spawn_threads();
 		}
 
 		gfxFlushBuffers();

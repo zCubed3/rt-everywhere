@@ -31,9 +31,16 @@
 #define CAMERA_NEAR REAL(0.001)
 #define CAMERA_FAR REAL(1000.0)
 
+#ifndef RTEVERYWHERE_SIMPLE_SCENE
 #define SPHERE_COUNT 64
 #define SPHERE_SIZE_MIN REAL(0.001)
 #define SPHERE_SIZE_MAX REAL(0.3)
+#else
+#define SPHERE_COUNT 16
+#define SPHERE_SIZE_MIN REAL(0.05)
+#define SPHERE_SIZE_MAX REAL(0.5)
+#endif
+
 #define SPHERE_Z_OFFSET REAL(2.0)
 
 int spheres_generated = 0;
@@ -118,6 +125,8 @@ void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point) {
 
 camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
 	camera_t cam;
+
+	cam.samples = CAMERA_SAMPLES_ONE;
 
 	rmat4_t mat_translation;
 	rmat4_t mat_rotation;
