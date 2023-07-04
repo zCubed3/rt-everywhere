@@ -29,5 +29,5 @@ target_link_libraries(SDL2Harness PUBLIC SDL2 SDL2main)
 
 if (SDL2_IMGUI_SUPPORT)
     target_include_directories(SDL2Harness PUBLIC dependencies/imgui)
-    target_compile_definitions(SDL2Harness PUBLIC RT_HARNESS_SDL2_IMGUI)
+    target_compile_definitions(SDL2Harness PUBLIC RTEVERYWHERE_IMGUI)
 endif()
