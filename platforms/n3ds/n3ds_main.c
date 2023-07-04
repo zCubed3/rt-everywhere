@@ -27,7 +27,7 @@
 
 #include <rt_everywhere.h>
 
-void render(camera_t camera, uint16_t width, uint16_t height, uint8_t framebuffer) {
+void render(camera_t camera, uint16_t width, uint16_t height, uint8_t *framebuffer) {
 	for (uint16_t y = 0; y < height; y++) {
 		int column = y * width * 3;
 		for (uint16_t x = 0; x < width; x++) {
