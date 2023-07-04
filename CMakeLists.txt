@@ -4,7 +4,25 @@ project(RTEverywhere C CXX)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 11)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_BUILD_TYPE}/")
+#
+# Build folders
+#
+
+# Special folders
+if (VITA)
+    set(RT_EVERYWHERE_OUTPUT "Vita-${CMAKE_BUILD_TYPE}")
+endif()
+
+if (NINTENDO_3DS)
+    set(RT_EVERYWHERE_OUTPUT "N3DS-${CMAKE_BUILD_TYPE}")
+endif()
+
+# Fallback folder
+if (NOT DEFINED RT_EVERYWHERE_OUTPUT)
+    set(RT_EVERYWHERE_OUTPUT "${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_BUILD_TYPE}")
+endif()
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/${RT_EVERYWHERE_OUTPUT}")
 set(CMAKE_PDB_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib")
@@ -88,7 +106,17 @@ if (${RT_EVERYWHERE_PLATFORM} STREQUAL APPLE)
 endif()
 
 if (${RT_EVERYWHERE_PLATFORM} STREQUAL NINTENDO_3DS)
-    ctr_create_3dsx(RTEverywhere)
+    # We need to create our SMDH
+    set(SMDH_FILE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/RTEverywhere.smdh")
+    set(3DSX_FILE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/RTEverywhere.3dsx")
+
+    ctr_generate_smdh("${SMDH_FILE}"
+        NAME "RTEverywhere"
+        DESCRIPTION "RT Everywhere, the 3DS port!"
+        AUTHOR "zCubed3"
+    )
+
+    ctr_create_3dsx(RTEverywhere SMDH "${SMDH_FILE}" OUTPUT "${3DSX_FILE}")
     target_compile_definitions(RTEverywhere PUBLIC "RTEVERYWHERE_FLIP_Y")
 endif()
 
