@@ -25,13 +25,13 @@
 #include <math.h>
 
 int sphere_ray_intersect(sphere_t sphere, ray_t ray, sphere_intersect_t* intersect) {
-	rvec3_copy(intersect->point, (rvec3_t){0, 0, 0});
-	rvec3_copy(intersect->normal, (rvec3_t){0, 0, 0});
+	rvec3_copy(RVEC_OUT(intersect->point), (rvec3_t){0, 0, 0});
+	rvec3_copy(RVEC_OUT(intersect->normal), (rvec3_t){0, 0, 0});
 	intersect->distance = 0;
 
 	// Ported to C from http://three-eyed-games.com/2018/05/03/gpu-ray-tracing-in-unity-part-1/
 	rvec3_t d;
-	rvec3_sub(d, ray.origin, sphere.origin);
+	rvec3_sub(RVEC_OUT(d), ray.origin, sphere.origin);
 
 	real_t p1 = -rvec3_dot(ray.direction, d);
 	real_t p1sqr = p1 * p1;
@@ -47,12 +47,12 @@ int sphere_ray_intersect(sphere_t sphere, ray_t ray, sphere_intersect_t* interse
 
 	if (t > 0) {
 		// Calculate the point
-		rvec3_mul_scalar(intersect->point, ray.direction, t);
-		rvec3_add(intersect->point, ray.origin, intersect->point);
+		rvec3_mul_scalar(RVEC_OUT(intersect->point), ray.direction, t);
+		rvec3_add(RVEC_OUT(intersect->point), ray.origin, intersect->point);
 
 		// Then the normal
-		rvec3_sub(intersect->normal, intersect->point, sphere.origin);
-		rvec3_normalize(intersect->normal);
+		rvec3_sub(RVEC_OUT(intersect->normal), intersect->point, sphere.origin);
+		rvec3_normalize(RVEC_OUT(intersect->normal));
 
 		// Then the travel
 		//rvec3_t travel;

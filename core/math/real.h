@@ -25,12 +25,16 @@
 
 #ifndef REAL_IS_DOUBLE
 
-typedef float real_t;
+//typedef float real_t;
+#define real_t float
+
 #define REAL(N) N##F
 
 #else
 
-typedef double real_t;
+//typedef double real_t;
+#define real_t double
+
 #define REAL(N) N
 
 #endif

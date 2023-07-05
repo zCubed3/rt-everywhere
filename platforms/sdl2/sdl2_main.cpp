@@ -98,7 +98,7 @@ int render(int is_preview) {
 			point.x = x;
 			point.y = y;
 
-			trace_pixel(color, camera, point);
+			trace_pixel(RVEC_OUT(color), camera, point);
 
 			pixels[index + 2] = color[0] * 255;
 			pixels[index + 1] = color[1] * 255;
@@ -170,8 +170,8 @@ int main(int argc, char** argv) {
 	// Create a temporary camera to get the default values
 	if (1) {
 		camera_t temp = default_camera({64, 64});
-		rvec3_copy(position, temp.position);
-		rvec3_copy(rotation, temp.rotation);
+		rvec3_copy(RVEC_OUT(position), temp.position);
+		rvec3_copy(RVEC_OUT(rotation), temp.rotation);
 	}
 
 #ifdef RTEVERYWHERE_IMGUI
@@ -316,28 +316,28 @@ int main(int argc, char** argv) {
 			rvec4_t right;
 			rvec4_t forward;
 
-			rvec4_copy(right, (rvec4_t){1, 0, 0, 0});
-			rvec4_copy(forward, (rvec4_t){0, 0, 1, 0});
+			rvec4_copy(RVEC_OUT(right), (rvec4_t){1, 0, 0, 0});
+			rvec4_copy(RVEC_OUT(forward), (rvec4_t){0, 0, 1, 0});
 
 			rvec4_t rel_right;
 			rvec4_t rel_forward;
 
-			rmat4_mul_rvec4(rel_right, rot_matrix, right);
-			rmat4_mul_rvec4(rel_forward, rot_matrix, forward);
+			rmat4_mul_rvec4(RVEC_OUT(rel_right), rot_matrix, right);
+			rmat4_mul_rvec4(RVEC_OUT(rel_forward), rot_matrix, forward);
 
 			rvec3_t right_vec;
 			rvec3_t forward_vec;
 
-			rvec3_copy_rvec4(right_vec, rel_right);
-			rvec3_normalize(right_vec);
-			rvec3_mul_scalar(right_vec, right_vec, move_x);
+			rvec3_copy_rvec4(RVEC_OUT(right_vec), rel_right);
+			rvec3_normalize(RVEC_OUT(right_vec));
+			rvec3_mul_scalar(RVEC_OUT(right_vec), right_vec, move_x);
 
-			rvec3_copy_rvec4(forward_vec, rel_forward);
-			rvec3_normalize(forward_vec);
-			rvec3_mul_scalar(forward_vec, forward_vec, move_z);
+			rvec3_copy_rvec4(RVEC_OUT(forward_vec), rel_forward);
+			rvec3_normalize(RVEC_OUT(forward_vec));
+			rvec3_mul_scalar(RVEC_OUT(forward_vec), forward_vec, move_z);
 
-			rvec3_add(position, position, right_vec);
-			rvec3_add(position, position, forward_vec);
+			rvec3_add(RVEC_OUT(position), position, right_vec);
+			rvec3_add(RVEC_OUT(position), position, forward_vec);
 		}
 
 		if (draw_preview && !should_render && render_thread == NULL) {

@@ -31,7 +31,7 @@
 #define CAMERA_NEAR REAL(0.001)
 #define CAMERA_FAR REAL(1000.0)
 
-#ifndef RTEVERYWHERE_SIMPLE_SCENE
+#ifndef RTE_SIMPLE_SCENE
 #define SPHERE_COUNT 64
 #define SPHERE_SIZE_MIN REAL(0.001)
 #define SPHERE_SIZE_MAX REAL(0.3)
@@ -57,7 +57,7 @@ void generate_spheres() {
         real_t green = crand_range(REAL(0.0), REAL(1.0));
         real_t blue = crand_range(REAL(0.0), REAL(1.0));
 
-        rvec3_copy(sphere.color, (rvec3_t){red, green, blue});
+        rvec3_copy(RVEC_OUT(sphere.color), (rvec3_t){red, green, blue});
 
         sphere.radius = crand_range(SPHERE_SIZE_MIN, SPHERE_SIZE_MAX);
         //sphere.radius = REAL(0.1);
@@ -88,11 +88,11 @@ void generate_spheres() {
                 // Planar distance
                 rvec3_t planar;
 
-                rvec3_copy(planar, other.origin);
+                rvec3_copy(RVEC_OUT(planar), other.origin);
                 planar[1] = 0;
 
                 rvec3_t vector;
-                rvec3_sub(vector, planar, point);
+                rvec3_sub(RVEC_OUT(vector), planar, point);
 
                 real_t gap = sphere.radius + other.radius;
                 real_t length = rvec3_length_sqr(vector);
@@ -102,15 +102,15 @@ void generate_spheres() {
                 }
             }
 
-            rvec3_copy(position, (rvec3_t){x, lift, z});
+            rvec3_copy(RVEC_OUT(position), (rvec3_t){x, lift, z});
         }
 
-        rvec3_copy(sphere.origin, position);
+        rvec3_copy(RVEC_OUT(sphere.origin), position);
         spheres[s] = sphere;
     }
 }
 
-void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point) {
+void screen_to_viewport(rvec2_out_t dst, viewport_t viewport, point_t point) {
 	// Note: When x == 0, x / width = 0, but x never hits width
 	// Therefore we must add half the texel size to x to account for this
 	real_t tex_x = REAL(1.0) / (real_t)viewport.width;
@@ -119,8 +119,8 @@ void screen_to_viewport(rvec2_t dst, viewport_t viewport, point_t point) {
 	real_t u = (real_t)point.x / (real_t)viewport.width;
 	real_t v = (real_t)point.y / (real_t)viewport.height;
 
-	dst[0] = ((u + (tex_x / REAL(2.0))) * REAL(2.0)) - REAL(1.0);
-	dst[1] = ((v + (tex_y / REAL(2.0))) * REAL(2.0)) - REAL(1.0);
+	RVEC_OUT_DEREF(dst)[0] = ((u + (tex_x / REAL(2.0))) * REAL(2.0)) - REAL(1.0);
+	RVEC_OUT_DEREF(dst)[1] = ((v + (tex_y / REAL(2.0))) * REAL(2.0)) - REAL(1.0);
 }
 
 camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
@@ -146,8 +146,8 @@ camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
 
 	cam.viewport = viewport;
 
-	rvec3_copy(cam.position, position);
-	rvec3_copy(cam.rotation, rotation);
+	rvec3_copy(RVEC_OUT(cam.position), position);
+	rvec3_copy(RVEC_OUT(cam.rotation), rotation);
 
 	return cam;
 }
@@ -157,8 +157,8 @@ camera_t default_camera(viewport_t viewport) {
 	rvec3_t target = {0, REAL(0.0), SPHERE_Z_OFFSET};
 
 	rvec3_t direction;
-	rvec3_sub(direction, origin, target);
-	rvec3_normalize(direction);
+	rvec3_sub(RVEC_OUT(direction), origin, target);
+	rvec3_normalize(RVEC_OUT(direction));
 
 	real_t yaw = real_to_degrees((real_t)atan2(direction[0], direction[2]));
 	real_t pitch = real_to_degrees((real_t)asin(direction[1]));
@@ -180,30 +180,30 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 		closest_t = ground_t;
 
 		// Position
-		rvec3_mul_scalar(p_fragment->position, ray.direction, ground_t);
-		rvec3_add(p_fragment->position, p_fragment->position, ray.origin);
+		rvec3_mul_scalar(RVEC_OUT(p_fragment->position), ray.direction, ground_t);
+		rvec3_add(RVEC_OUT(p_fragment->position), p_fragment->position, ray.origin);
 
-		rvec3_copy(p_fragment->normal, (rvec3_t){0, 1, 0});
+		rvec3_copy(RVEC_OUT(p_fragment->normal), (rvec3_t){0, 1, 0});
 
 		// Checkerboard pattern
 		rvec3_t checker;
-		rvec3_copy(checker, p_fragment->position);
+		rvec3_copy(RVEC_OUT(checker), p_fragment->position);
 
 		checker[0] = real_floor(checker[0] * GROUND_CHECKER_SIZE);
 		checker[2] = real_floor(checker[2] * GROUND_CHECKER_SIZE);
 
 		real_t mod = real_mod(checker[0] + real_mod(checker[2], REAL(2.0)), REAL(2.0));
 
-		rvec3_copy(p_fragment->albedo, RVEC3_RGB(0, 0, 0));
+		rvec3_copy(RVEC_OUT(p_fragment->albedo), RVEC3_RGB(0, 0, 0));
 
 		if (mod) {
-			rvec3_copy(p_fragment->albedo, RVEC3_RGB(255, 0, 137));
+			rvec3_copy(RVEC_OUT(p_fragment->albedo), RVEC3_RGB(255, 0, 137));
 		} else {
-			rvec3_copy(p_fragment->albedo, RVEC3_RGB(5, 5, 5));
+			rvec3_copy(RVEC_OUT(p_fragment->albedo), RVEC3_RGB(5, 5, 5));
 		}
 
-		rvec3_copy(p_fragment->glow, p_fragment->albedo);
-		rvec3_mul_scalar(p_fragment->glow, p_fragment->glow, REAL(0.5));
+		rvec3_copy(RVEC_OUT(p_fragment->glow), p_fragment->albedo);
+		rvec3_mul_scalar(RVEC_OUT(p_fragment->glow), p_fragment->glow, REAL(0.5));
 
 		// The ground is a mirror
 		p_fragment->material_type = MATERIAL_TYPE_MIRROR;
@@ -226,10 +226,10 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 			if (intersect.distance < closest_t) {
 				closest_t = intersect.distance;
 
-				rvec3_copy(p_fragment->position, intersect.point);
-				rvec3_copy(p_fragment->normal, intersect.normal);
-                rvec3_copy(p_fragment->albedo, sphere.color);
-                rvec3_copy(p_fragment->glow, RVEC3_RGB(0, 0, 0));
+				rvec3_copy(RVEC_OUT(p_fragment->position), intersect.point);
+				rvec3_copy(RVEC_OUT(p_fragment->normal), intersect.normal);
+                rvec3_copy(RVEC_OUT(p_fragment->albedo), sphere.color);
+                rvec3_copy(RVEC_OUT(p_fragment->glow), RVEC3_RGB(0, 0, 0));
 
                 p_fragment->material_type = sphere.type;
 
@@ -241,29 +241,29 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 	return hit;
 }
 
-void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
+void shade_fragment(rvec3_out_t dst_col, fragment_t fragment, ray_t ray) {
 	// Clear the previous shading
 	rvec3_copy(dst_col, RVEC3_RGB(0, 0, 0));
 
 	rvec3_t light_dir = {REAL(1.0), REAL(1.0), REAL(-0.5)};
-	rvec3_normalize(light_dir);
+	rvec3_normalize(RVEC_OUT(light_dir));
 
 	rvec3_t bias;
-	rvec3_copy(bias, fragment.normal);
-	rvec3_mul_scalar(bias, bias, REAL(0.001));
+	rvec3_copy(RVEC_OUT(bias), fragment.normal);
+	rvec3_mul_scalar(RVEC_OUT(bias), bias, REAL(0.001));
 
 	// View direction
 	rvec3_t view_dir;
-	rvec3_mul_scalar(view_dir, ray.direction, REAL(-1.0));
+	rvec3_mul_scalar(RVEC_OUT(view_dir), ray.direction, REAL(-1.0));
 
 	// Shadowing
 	fragment_t shadow_frag;
 	ray_t shadow_ray;
 
-	rvec3_copy(shadow_ray.origin, fragment.position);
-	rvec3_add(shadow_ray.origin, shadow_ray.origin, bias);
+	rvec3_copy(RVEC_OUT(shadow_ray.origin), fragment.position);
+	rvec3_add(RVEC_OUT(shadow_ray.origin), shadow_ray.origin, bias);
 
-	rvec3_copy(shadow_ray.direction, light_dir);
+	rvec3_copy(RVEC_OUT(shadow_ray.direction), light_dir);
 
 	int shadow = !trace_scene(&shadow_frag, shadow_ray);
 
@@ -277,8 +277,8 @@ void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
 	// Blinn-phong
 	//
 	rvec3_t halfway;
-	rvec3_add(halfway, view_dir, light_dir);
-	rvec3_normalize(halfway);
+	rvec3_add(RVEC_OUT(halfway), view_dir, light_dir);
+	rvec3_normalize(RVEC_OUT(halfway));
 
 	real_t blinn_phong = real_saturate(rvec3_dot(fragment.normal, halfway));
 	blinn_phong = real_pow(blinn_phong, REAL(64.0));
@@ -288,8 +288,8 @@ void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
 	// Ambient term
 	//
 	rvec3_t ambient;
-	rvec3_copy(ambient, AMBIENT_COLOR);
-	rvec3_mul(ambient, ambient, fragment.albedo);
+	rvec3_copy(RVEC_OUT(ambient), AMBIENT_COLOR);
+	rvec3_mul(RVEC_OUT(ambient), ambient, fragment.albedo);
 
 	//
 	// Final shading
@@ -312,24 +312,24 @@ void shade_fragment(rvec3_t dst_col, fragment_t fragment, ray_t ray) {
 	rvec3_t direct;
 	rvec3_t specular;
 
-	rvec3_copy(direct, fragment.albedo);
-	rvec3_copy(specular, RVEC3_RGB(255, 255, 255));
+	rvec3_copy(RVEC_OUT(direct), fragment.albedo);
+	rvec3_copy(RVEC_OUT(specular), RVEC3_RGB(255, 255, 255));
 
-	rvec3_mul_scalar(direct, direct, direct_fac);
-	rvec3_mul_scalar(specular, specular, specular_fac);
+	rvec3_mul_scalar(RVEC_OUT(direct), direct, direct_fac);
+	rvec3_mul_scalar(RVEC_OUT(specular), specular, specular_fac);
 
-	rvec3_add(dst_col, dst_col, direct);
-	rvec3_add(dst_col, dst_col, specular);
+	rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), direct);
+	rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), specular);
 
 	if (fragment.material_type != MATERIAL_TYPE_MIRROR) {
-		rvec3_add(dst_col, dst_col, ambient);
+		rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), ambient);
 	}
 
 	// Add the glow
-	rvec3_add(dst_col, dst_col, fragment.glow);
+	rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), fragment.glow);
 }
 
-void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
+void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 	rvec3_copy(dst_col, (rvec3_t) {0, 0, 0});
 
 	real_t sub_tex_x = REAL(1.0) / (real_t)camera.viewport.width;
@@ -344,12 +344,12 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 	// Clear color
 	for (int s = 0; s < samples; s++) {
 		rvec3_t sample;
-		rvec3_copy(sample, SKY_COLOR);
+		rvec3_copy(RVEC_OUT(sample), SKY_COLOR);
 
 		// Set up the base ray
 		// It's jittered at a subpixel level when using MSAA
 		rvec2_t view_coord;
-		screen_to_viewport(view_coord, camera.viewport, point);
+		screen_to_viewport(RVEC_OUT(view_coord), camera.viewport, point);
 
 		if (samples == 4) {
 			if (s <= 1) {
@@ -367,71 +367,71 @@ void trace_pixel(rvec3_t dst_col, camera_t camera, point_t point) {
 
 		ray_t ray;
 
-		rvec3_copy(ray.direction, (rvec3_t) {view_coord[0], -view_coord[1], 1});
+		rvec3_copy(RVEC_OUT(ray.direction), (rvec3_t) {view_coord[0], -view_coord[1], 1});
 
-#ifdef RTEVERYWHERE_FLIP_Y
+#ifdef RTE_FLIP_Y
 		ray.direction[1] *= -1;
 #endif
 
 		rvec4_t pre_t;
 		rvec4_t post_t;
 
-		rvec4_copy_rvec3_w(pre_t, ray.direction, REAL(1.0));
-		rmat4_mul_rvec4(post_t, camera.mat_vp_i, pre_t);
+		rvec4_copy_rvec3_w(RVEC_OUT(pre_t), ray.direction, REAL(1.0));
+		rmat4_mul_rvec4(RVEC_OUT(post_t), camera.mat_vp_i, pre_t);
 
-		rvec3_copy_rvec4(ray.direction, post_t);
-		rvec3_normalize(ray.direction);
+		rvec3_copy_rvec4(RVEC_OUT(ray.direction), post_t);
+		rvec3_normalize(RVEC_OUT(ray.direction));
 
-		rvec4_copy_rvec3_w(pre_t, (rvec3_t) {0, 0, 0}, REAL(1.0));
-		rmat4_mul_rvec4(post_t, camera.mat_v, pre_t);
+		rvec4_copy_rvec3_w(RVEC_OUT(pre_t), (rvec3_t) {0, 0, 0}, REAL(1.0));
+		rmat4_mul_rvec4(RVEC_OUT(post_t), camera.mat_v, pre_t);
 
-		rvec3_copy_rvec4(ray.origin, post_t);
+		rvec3_copy_rvec4(RVEC_OUT(ray.origin), post_t);
 
 		//
 		// Base pass
 		//
 		fragment_t base_frag;
 		if (trace_scene(&base_frag, ray)) {
-			shade_fragment(sample, base_frag, ray);
+			shade_fragment(RVEC_OUT(sample), base_frag, ray);
 
 			// Reflection
 			rvec3_t reflection;
-			rvec3_copy(reflection, RVEC3_RGB(0, 0, 0));
+			rvec3_copy(RVEC_OUT(reflection), RVEC3_RGB(0, 0, 0));
 
 			if (base_frag.material_type == MATERIAL_TYPE_MIRROR) {
                 rvec3_t bias;
-				rvec3_copy(bias, base_frag.normal);
-				rvec3_mul_scalar(bias, bias, REAL(0.001));
+				rvec3_copy(RVEC_OUT(bias), base_frag.normal);
+				rvec3_mul_scalar(RVEC_OUT(bias), bias, REAL(0.001));
 
 				fragment_t reflect_frag;
 				ray_t reflect_ray;
 
-				rvec3_copy(reflect_ray.origin, base_frag.position);
-				rvec3_add(reflect_ray.origin, reflect_ray.origin, bias);
+				rvec3_copy(RVEC_OUT(reflect_ray.origin), base_frag.position);
+				rvec3_add(RVEC_OUT(reflect_ray.origin), reflect_ray.origin, bias);
 
 				rvec3_t view_dir;
-				rvec3_copy(view_dir, ray.direction);
+				rvec3_copy(RVEC_OUT(view_dir), ray.direction);
 
 				rvec3_t incidence;
-				rvec3_reflect(incidence, view_dir, base_frag.normal);
-				rvec3_normalize(incidence);
+				rvec3_reflect(RVEC_OUT(incidence), view_dir, base_frag.normal);
+				rvec3_normalize(RVEC_OUT(incidence));
 
-				rvec3_copy(reflect_ray.direction, incidence);
+				rvec3_copy(RVEC_OUT(reflect_ray.direction), incidence);
 
 				if (trace_scene(&reflect_frag, reflect_ray)) {
-					shade_fragment(reflection, reflect_frag, reflect_ray);
+					shade_fragment(RVEC_OUT(reflection), reflect_frag, reflect_ray);
 				} else {
-					rvec3_copy(reflection, SKY_COLOR);
+					rvec3_copy(RVEC_OUT(reflection), SKY_COLOR);
 				}
 
-                rvec3_mul(reflection, reflection, base_frag.albedo);
+                rvec3_mul(RVEC_OUT(reflection), reflection, base_frag.albedo);
 			}
 
-			rvec3_add(sample, sample, reflection);
+			rvec3_add(RVEC_OUT(sample), sample, reflection);
 		}
 
-		rvec3_mul_scalar(sample, sample, REAL(1.0) / (real_t)samples);
-		rvec3_add(dst_col, dst_col, sample);
+		rvec3_mul_scalar(RVEC_OUT(sample), sample, REAL(1.0) / (real_t)samples);
+		rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), sample);
 	}
 
 	//

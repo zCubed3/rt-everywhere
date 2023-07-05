@@ -24,6 +24,10 @@
 
 #include <math.h>
 
+#ifndef RTE_NO_STDLIB
+#include <string.h>
+#endif
+
 void rmat4_zero(rmat4_t dst) {
 	for (int x = 0; x < 4; x++) {
 		for (int y = 0; y < 4; y++) {
@@ -96,57 +100,57 @@ void rmat4_inverse(rmat4_t dst, const rmat4_t src) {
 	//rvec4_t inv0 = (vec1 * fac0 - vec2 * fac1 + vec3 * fac2);
 	rvec4_t inv0;
 
-	rvec4_mul(p00, vec1, fac0);
-	rvec4_mul(p01, vec2, fac1);
-	rvec4_mul(p02, vec3, fac2);
+	rvec4_mul(RVEC_OUT(p00), vec1, fac0);
+	rvec4_mul(RVEC_OUT(p01), vec2, fac1);
+	rvec4_mul(RVEC_OUT(p02), vec3, fac2);
 
-	rvec4_add(p03, p01, p02);
-	rvec4_sub(inv0, p00, p03);
+	rvec4_add(RVEC_OUT(p03), p01, p02);
+	rvec4_sub(RVEC_OUT(inv0), p00, p03);
 
 	//rvec4_t inv1 = (vec0 * fac0 - vec2 * fac3 + vec3 * fac4);
 	rvec4_t inv1;
 
-	rvec4_mul(p00, vec0, fac0);
-	rvec4_mul(p01, vec2, fac3);
-	rvec4_mul(p02, vec3, fac4);
+	rvec4_mul(RVEC_OUT(p00), vec0, fac0);
+	rvec4_mul(RVEC_OUT(p01), vec2, fac3);
+	rvec4_mul(RVEC_OUT(p02), vec3, fac4);
 
-	rvec4_add(p03, p01, p02);
-	rvec4_sub(inv1, p00, p03);
+	rvec4_add(RVEC_OUT(p03), p01, p02);
+	rvec4_sub(RVEC_OUT(inv1), p00, p03);
 
 	//rvec4_t inv2 = (vec0 * fac1 - vec1 * fac3 + vec3 * fac5);
 	rvec4_t inv2;
 
-	rvec4_mul(p00, vec0, fac1);
-	rvec4_mul(p01, vec1, fac3);
-	rvec4_mul(p02, vec3, fac5);
+	rvec4_mul(RVEC_OUT(p00), vec0, fac1);
+	rvec4_mul(RVEC_OUT(p01), vec1, fac3);
+	rvec4_mul(RVEC_OUT(p02), vec3, fac5);
 
-	rvec4_add(p03, p01, p02);
-	rvec4_sub(inv2, p00, p03);
+	rvec4_add(RVEC_OUT(p03), p01, p02);
+	rvec4_sub(RVEC_OUT(inv2), p00, p03);
 
 	//rvec4_t inv3 = (vec0 * fac2 - vec1 * fac4 + vec2 * fac5);
 	rvec4_t inv3;
 
-	rvec4_mul(p00, vec0, fac2);
-	rvec4_mul(p01, vec1, fac4);
-	rvec4_mul(p02, vec2, fac5);
+	rvec4_mul(RVEC_OUT(p00), vec0, fac2);
+	rvec4_mul(RVEC_OUT(p01), vec1, fac4);
+	rvec4_mul(RVEC_OUT(p02), vec2, fac5);
 
-	rvec4_add(p03, p01, p02);
-	rvec4_sub(inv3, p00, p03);
+	rvec4_add(RVEC_OUT(p03), p01, p02);
+	rvec4_sub(RVEC_OUT(inv3), p00, p03);
 
 	rvec4_t sign_a = {REAL(1.0), -REAL(1.0), REAL(1.0), -REAL(1.0)};
 	rvec4_t sign_b;
 
-	rvec4_mul_scalar(sign_b, sign_a, REAL(-1.0));
+	rvec4_mul_scalar(RVEC_OUT(sign_b), sign_a, REAL(-1.0));
 
 	rvec4_t row0;
 	rvec4_t row1;
 	rvec4_t row2;
 	rvec4_t row3;
 
-	rvec4_mul(row0, inv0, sign_a);
-	rvec4_mul(row1, inv1, sign_b);
-	rvec4_mul(row2, inv2, sign_a);
-	rvec4_mul(row3, inv3, sign_b);
+	rvec4_mul(RVEC_OUT(row0), inv0, sign_a);
+	rvec4_mul(RVEC_OUT(row1), inv1, sign_b);
+	rvec4_mul(RVEC_OUT(row2), inv2, sign_a);
+	rvec4_mul(RVEC_OUT(row3), inv3, sign_b);
 
 	rmat4_t inv;
 	rmat4_copy_rows(inv, row0, row1, row2, row3);
@@ -155,7 +159,7 @@ void rmat4_inverse(rmat4_t dst, const rmat4_t src) {
 	rvec4_t src_r0 = {src[0][0], src[1][0], src[2][0], src[3][0]};
 
 	rvec4_t dot0;
-	rvec4_mul(dot0, src_r0, r0);
+	rvec4_mul(RVEC_OUT(dot0), src_r0, r0);
 
 	real_t dot1 = dot0[0] + dot0[1] + dot0[2] + dot0[3];
 	real_t d = REAL(1.0) / dot1;
@@ -243,11 +247,11 @@ void rmat4_perspective(rmat4_t dst, real_t fov_y, real_t aspect, real_t near, re
 	rmat4_transpose(dst, temp);
 }
 
-void rmat4_mul_rvec4(rvec4_t dst, const rmat4_t mat, const rvec4_t vec) {
-	dst[0] = vec[0] * mat[0][0] + vec[1] * mat[0][1] + vec[2] * mat[0][2] + vec[3] * mat[0][3];
-	dst[1] = vec[0] * mat[1][0] + vec[1] * mat[1][1] + vec[2] * mat[1][2] + vec[3] * mat[1][3];
-	dst[2] = vec[0] * mat[2][0] + vec[1] * mat[2][1] + vec[2] * mat[2][2] + vec[3] * mat[2][3];
-	dst[3] = vec[0] * mat[3][0] + vec[1] * mat[3][1] + vec[2] * mat[3][2] + vec[3] * mat[3][3];
+void rmat4_mul_rvec4(rvec4_out_t dst, const rmat4_t mat, const rvec4_t vec) {
+	RVEC_OUT_DEREF(dst)[0] = vec[0] * mat[0][0] + vec[1] * mat[0][1] + vec[2] * mat[0][2] + vec[3] * mat[0][3];
+	RVEC_OUT_DEREF(dst)[1] = vec[0] * mat[1][0] + vec[1] * mat[1][1] + vec[2] * mat[1][2] + vec[3] * mat[1][3];
+	RVEC_OUT_DEREF(dst)[2] = vec[0] * mat[2][0] + vec[1] * mat[2][1] + vec[2] * mat[2][2] + vec[3] * mat[2][3];
+	RVEC_OUT_DEREF(dst)[3] = vec[0] * mat[3][0] + vec[1] * mat[3][1] + vec[2] * mat[3][2] + vec[3] * mat[3][3];
 }
 
 void rmat4_mul(rmat4_t dst, const rmat4_t a, const rmat4_t b) {
@@ -261,7 +265,7 @@ void rmat4_mul(rmat4_t dst, const rmat4_t a, const rmat4_t b) {
 			}
 
 			rvec4_t prod;
-			rvec4_mul(prod, row, col);
+			rvec4_mul(RVEC_OUT(prod), row, col);
 
 			dst[y][x] = prod[0] + prod[1] + prod[2] + prod[3];
 		}
@@ -277,18 +281,29 @@ void rmat4_mul_scalar(rmat4_t dst, const rmat4_t src, real_t s) {
 }
 
 void rmat4_copy(rmat4_t dst, const rmat4_t src) {
+#ifndef RTE_NO_STDLIB
+	memcpy(dst, src, sizeof(rmat4_t));
+#else
 	for (int x = 0; x < 4; x++) {
 		for (int y = 0; y < 4; y++) {
 			dst[x][y] = src[x][y];
 		}
 	}
+#endif
 }
 
 void rmat4_copy_rows(rmat4_t dst, const rvec4_t r0, const rvec4_t r1, const rvec4_t r2, const rvec4_t r3) {
+#if !defined(RTE_NO_STDLIB) && !defined(VECTORS_ARE_VECTORIZED)
+	memcpy(dst[0], r0, sizeof(real_t) * 4);
+	memcpy(dst[1], r1, sizeof(real_t) * 4);
+	memcpy(dst[2], r2, sizeof(real_t) * 4);
+	memcpy(dst[3], r3, sizeof(real_t) * 4);
+#else
 	for (int x = 0; x < 4; x++) {
 		dst[0][x] = r0[x];
 		dst[1][x] = r1[x];
 		dst[2][x] = r2[x];
 		dst[3][x] = r3[x];
 	}
+#endif
 }

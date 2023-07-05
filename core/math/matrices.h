@@ -43,7 +43,7 @@ void rmat4_translate(rmat4_t dst, const rvec3_t translation);
 
 void rmat4_perspective(rmat4_t dst, real_t fov_y, real_t aspect, real_t near, real_t far);
 
-void rmat4_mul_rvec4(rvec4_t dst, const rmat4_t mat, const rvec4_t vec);
+void rmat4_mul_rvec4(rvec4_out_t dst, const rmat4_t mat, const rvec4_t vec);
 
 void rmat4_mul(rmat4_t dst, const rmat4_t a, const rmat4_t b);
 void rmat4_mul_scalar(rmat4_t dst, const rmat4_t src, real_t s);

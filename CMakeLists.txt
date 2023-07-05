@@ -102,7 +102,7 @@ endif()
 
 if (${RT_EVERYWHERE_PLATFORM} STREQUAL APPLE)
     target_link_libraries(RTEverywhere PUBLIC "-framework Foundation" "-framework Cocoa")
-    target_compile_definitions(RTEverywhere PUBLIC "RTEVERYWHERE_FLIP_Y")
+    target_compile_definitions(RTEverywhere PUBLIC "RTE_FLIP_Y")
 endif()
 
 if (${RT_EVERYWHERE_PLATFORM} STREQUAL NINTENDO_3DS)
@@ -117,7 +117,7 @@ if (${RT_EVERYWHERE_PLATFORM} STREQUAL NINTENDO_3DS)
     )
 
     ctr_create_3dsx(RTEverywhere SMDH "${SMDH_FILE}" OUTPUT "${3DSX_FILE}")
-    target_compile_definitions(RTEverywhere PUBLIC "RTEVERYWHERE_FLIP_Y" "RTEVERYWHERE_SIMPLE_SCENE")
+    target_compile_definitions(RTEverywhere PUBLIC "RTE_FLIP_Y" "RTE_SIMPLE_SCENE")
 endif()
 
 if (APPLE)
