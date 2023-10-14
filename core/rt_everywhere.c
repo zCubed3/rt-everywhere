@@ -1,24 +1,6 @@
-/****************************************************************************************/
-/* Copyright (c) 2023 zCubed3                                                        */
-/*                                                                                      */
-/* Permission is hereby granted, free of charge, to any person obtaining a copy         */
-/* of this software and associated documentation files (the "Software"), to deal        */
-/* in the Software without restriction, including without limitation the rights         */
-/* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell            */
-/* copies of the Software, and to permit persons to whom the Software is                */
-/* furnished to do so, subject to the following conditions:                             */
-/*                                                                                      */
-/* The above copyright notice and this permission notice shall be included in all       */
-/* copies or substantial portions of the Software.                                      */
-/*                                                                                      */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR           */
-/* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,             */
-/* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE          */
-/* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER               */
-/* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,        */
-/* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE        */
-/* SOFTWARE.                                                                            */
-/****************************************************************************************/
+//
+// Copyright (c) 2023 Liam R. (zCubed3)
+//
 
 #include "rt_everywhere.h"
 
@@ -30,6 +12,8 @@
 #define CAMERA_FOV 45
 #define CAMERA_NEAR REAL(0.001)
 #define CAMERA_FAR REAL(1000.0)
+
+//#define RTE_SIMPLE_SCENE
 
 #ifndef RTE_SIMPLE_SCENE
 #define SPHERE_COUNT 64
@@ -172,7 +156,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 	p_fragment->material_type = MATERIAL_TYPE_PLASTIC;
 
 	// Intersect the ground
-	const real_t GROUND_CHECKER_SIZE = REAL(2.0);
+	const real_t GROUND_CHECKER_SIZE = REAL(3.0);
 
 	real_t closest_t = CAMERA_FAR;
 	real_t ground_t = -ray.origin[1] / ray.direction[1];
@@ -329,6 +313,18 @@ void shade_fragment(rvec3_out_t dst_col, fragment_t fragment, ray_t ray) {
 	rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), fragment.glow);
 }
 
+void shade_sky(rvec3_out_t dst_col, ray_t ray) {
+    // Dot against the sky
+    const rvec3_t SKY_AXIS = {0, 1, 0};
+
+    const real_t SKY_POW = REAL(0.2);
+
+    real_t dot = real_pow(real_saturate(rvec3_dot(ray.direction, SKY_AXIS)), SKY_POW);
+
+    rvec3_copy(dst_col, SKY_COLOR);
+    rvec3_mul_scalar(dst_col, RVEC_OUT_DEREF(dst_col), dot);
+}
+
 void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 	rvec3_copy(dst_col, (rvec3_t) {0, 0, 0});
 
@@ -343,9 +339,6 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 
 	// Clear color
 	for (int s = 0; s < samples; s++) {
-		rvec3_t sample;
-		rvec3_copy(RVEC_OUT(sample), SKY_COLOR);
-
 		// Set up the base ray
 		// It's jittered at a subpixel level when using MSAA
 		rvec2_t view_coord;
@@ -387,48 +380,82 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 
 		rvec3_copy_rvec4(RVEC_OUT(ray.origin), post_t);
 
-		//
+        //
 		// Base pass
 		//
+        rvec3_t sample;
 		fragment_t base_frag;
-		if (trace_scene(&base_frag, ray)) {
+
+        if (trace_scene(&base_frag, ray)) {
 			shade_fragment(RVEC_OUT(sample), base_frag, ray);
 
 			// Reflection
 			rvec3_t reflection;
-			rvec3_copy(RVEC_OUT(reflection), RVEC3_RGB(0, 0, 0));
+            rvec3_copy(RVEC_OUT(reflection), RVEC3_RGB(0, 0, 0));
 
 			if (base_frag.material_type == MATERIAL_TYPE_MIRROR) {
-                rvec3_t bias;
-				rvec3_copy(RVEC_OUT(bias), base_frag.normal);
-				rvec3_mul_scalar(RVEC_OUT(bias), bias, REAL(0.001));
+                const int MIRROR_BOUNCES = 5;
 
-				fragment_t reflect_frag;
-				ray_t reflect_ray;
+                fragment_t prior_frag = base_frag;
+                ray_t prior_ray = ray;
 
-				rvec3_copy(RVEC_OUT(reflect_ray.origin), base_frag.position);
-				rvec3_add(RVEC_OUT(reflect_ray.origin), reflect_ray.origin, bias);
+                rvec3_t energy;
 
-				rvec3_t view_dir;
-				rvec3_copy(RVEC_OUT(view_dir), ray.direction);
+                rvec3_copy(&energy, base_frag.albedo);
 
-				rvec3_t incidence;
-				rvec3_reflect(RVEC_OUT(incidence), view_dir, base_frag.normal);
-				rvec3_normalize(RVEC_OUT(incidence));
+                for (int b = 0; b < MIRROR_BOUNCES; b++) {
+                    rvec3_t bias;
+                    rvec3_copy(RVEC_OUT(bias), prior_frag.normal);
+                    rvec3_mul_scalar(RVEC_OUT(bias), bias, REAL(0.001));
 
-				rvec3_copy(RVEC_OUT(reflect_ray.direction), incidence);
+                    fragment_t reflect_frag;
+                    ray_t reflect_ray;
 
-				if (trace_scene(&reflect_frag, reflect_ray)) {
-					shade_fragment(RVEC_OUT(reflection), reflect_frag, reflect_ray);
-				} else {
-					rvec3_copy(RVEC_OUT(reflection), SKY_COLOR);
-				}
+                    rvec3_copy(RVEC_OUT(reflect_ray.origin), prior_frag.position);
+                    rvec3_add(RVEC_OUT(reflect_ray.origin), reflect_ray.origin, bias);
 
-                rvec3_mul(RVEC_OUT(reflection), reflection, base_frag.albedo);
+                    rvec3_t view_dir;
+                    rvec3_copy(RVEC_OUT(view_dir), prior_ray.direction);
+
+                    rvec3_t incidence;
+                    rvec3_reflect(RVEC_OUT(incidence), view_dir, prior_frag.normal);
+                    rvec3_normalize(RVEC_OUT(incidence));
+
+                    rvec3_copy(RVEC_OUT(reflect_ray.direction), incidence);
+
+                    int break_after = 0;
+
+                    rvec3_t local_reflection;
+                    rvec3_t local_energy;
+
+                    if (trace_scene(&reflect_frag, reflect_ray)) {
+                        shade_fragment(RVEC_OUT(local_reflection), reflect_frag, reflect_ray);
+                        rvec3_copy(RVEC_OUT(local_energy), reflect_frag.albedo);
+                    } else {
+                        shade_sky(RVEC_OUT(local_reflection), reflect_ray);
+                        rvec3_copy_scalar(RVEC_OUT(local_energy), REAL(0.0));
+
+                        break_after = 1;
+                    }
+
+                    rvec3_mul(RVEC_OUT(local_reflection), local_reflection, energy);
+                    rvec3_add(RVEC_OUT(reflection), reflection, local_reflection);
+
+                    rvec3_mul(RVEC_OUT(energy), energy, local_energy);
+
+                    prior_frag = reflect_frag;
+                    prior_ray = reflect_ray;
+
+                    if (break_after) {
+                        break;
+                    }
+                }
 			}
 
 			rvec3_add(RVEC_OUT(sample), sample, reflection);
-		}
+		} else {
+            shade_sky(RVEC_OUT(sample), ray);
+        }
 
 		rvec3_mul_scalar(RVEC_OUT(sample), sample, REAL(1.0) / (real_t)samples);
 		rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), sample);
