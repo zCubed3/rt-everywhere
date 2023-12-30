@@ -153,40 +153,40 @@ void rmat4_rotate_x(rmat4_t dst, real_t angle) {
 	rmat4_identity(dst);
 
 	dst[1][0] = 0;
-	dst[1][1] = (real_t)cos(angle);
-	dst[1][2] = -(real_t)sin(angle);
+	dst[1][1] = real_cos(angle);
+	dst[1][2] = -real_sin(angle);
 	dst[1][3] = 0;
 
 	dst[2][0] = 0;
-	dst[2][1] = (real_t)sin(angle);
-	dst[2][2] = (real_t)cos(angle);
+	dst[2][1] = real_sin(angle);
+	dst[2][2] = real_cos(angle);
 	dst[2][3] = 0;
 }
 
 void rmat4_rotate_y(rmat4_t dst, real_t angle) {
 	rmat4_identity(dst);
 
-	dst[0][0] = (real_t)cos(angle);
+	dst[0][0] = real_cos(angle);
 	dst[0][1] = 0;
-	dst[0][2] = (real_t)sin(angle);
+	dst[0][2] = real_sin(angle);
 	dst[0][3] = 0;
 
-	dst[2][0] = -(real_t)sin(angle);
+	dst[2][0] = -real_sin(angle);
 	dst[2][1] = 0;
-	dst[2][2] = (real_t)cos(angle);
+	dst[2][2] = real_cos(angle);
 	dst[2][3] = 0;
 }
 
 void rmat4_rotate_z(rmat4_t dst, real_t angle) {
 	rmat4_identity(dst);
 
-	dst[0][0] = (real_t)cos(angle);
-	dst[0][1] = -(real_t)sin(angle);
+	dst[0][0] = real_cos(angle);
+	dst[0][1] = -real_sin(angle);
 	dst[0][2] = 0;
 	dst[0][3] = 0;
 
-	dst[1][0] = (real_t)sin(angle);
-	dst[1][1] = (real_t)cos(angle);
+	dst[1][0] = real_sin(angle);
+	dst[1][1] = real_cos(angle);
 	dst[1][2] = 0;
 	dst[1][3] = 0;
 }
@@ -215,7 +215,7 @@ void rmat4_translate(rmat4_t dst, const rvec3_t translation) {
 
 void rmat4_perspective(rmat4_t dst, real_t fov_y, real_t aspect, real_t near, real_t far) {
 	real_t vertical_fov = real_to_radians(fov_y / REAL(2.0));
-	real_t half_fov = (real_t)tan(vertical_fov);
+	real_t half_fov = real_tan(vertical_fov);
 
 	rmat4_t temp;
 	rmat4_zero(temp);

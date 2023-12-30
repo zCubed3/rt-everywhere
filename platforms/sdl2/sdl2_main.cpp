@@ -41,8 +41,24 @@ SDL_Texture* texture = NULL;
 SDL_Texture* preview_texture = NULL;
 
 SDL_Thread* render_thread = NULL;
+SDL_Thread* render_thread2 = NULL;
+SDL_Texture* render_texture = NULL;
+SDL_Rect render_rect;
+uint8_t* render_pixels = NULL;
+rte_bool_e render_lock = RTE_FALSE;
+int render_semaphore = 0;
 
 camera_t camera;
+
+typedef enum render_target {
+    RENDER_TARGET_SCREEN,
+    RENDER_TARGET_PREVIEW
+} render_target_e;
+
+typedef struct thread_args {
+    SDL_Thread** pp_thread;
+    SDL_Rect rect;
+} thread_args_t;
 
 void get_rgb(rvec3_out_t dst, const uint8_t* src, int x, int y, int width, int stride) {
     int index = (y * width * stride) + (x * stride);
@@ -52,43 +68,73 @@ void get_rgb(rvec3_out_t dst, const uint8_t* src, int x, int y, int width, int s
     dst[2] = src[index + 2] / 255.0;
 }
 
-int render(int is_preview) {
-	uint8_t *pixels = NULL;
+void begin_render(render_target_e target) {
+    int pitch;
+
+    render_texture = texture;
+    render_rect = texture_rect;
+
+    if (target == RENDER_TARGET_PREVIEW) {
+        render_texture = preview_texture;
+        render_rect = preview_rect;
+    }
+
+    SDL_LockTexture(render_texture, NULL, (void **) &render_pixels, &pitch);
+
+    pixels_rendered = 0;
+    pixel_count = render_rect.w * render_rect.h;
+    render_lock = RTE_TRUE;
+    time_render_start = SDL_GetTicks();
+}
+
+void end_render() {
+    time_render_end = SDL_GetTicks();
+
+    uint8_t* fix_pixels = new uint8_t[render_rect.w * render_rect.h * 3];
+    for (int y = 0; y < render_rect.h; y++) {
+        int inv_y = render_rect.h - 1 - y;
+
+        for (int x = 0; x < render_rect.w; x++) {
+            int old_index = (y * render_rect.w * 4) + (x * 4);
+            int fix_index = (inv_y * render_rect.w * 3) + (x * 3);
+
+            fix_pixels[fix_index + 2] = render_pixels[old_index + 2];
+            fix_pixels[fix_index + 1] = render_pixels[old_index + 1];
+            fix_pixels[fix_index + 0] = render_pixels[old_index + 0];
+        }
+    }
+
+    write_bmp("out.bmp", texture_rect.w, texture_rect.h, (char*)fix_pixels);
+
+    delete[] fix_pixels;
+
+    SDL_UnlockTexture(render_texture);
+    render_lock = RTE_FALSE;
+}
+
+int render(render_target_e target, SDL_Rect rect) {
 	int pitch;
 
-	SDL_Texture *target_texture = texture;
-	SDL_Rect target_rect = texture_rect;
-
-	if (is_preview) {
-		target_texture = preview_texture;
-		target_rect = preview_rect;
-	}
-
-	if (target_texture == NULL) {
-		printf("Error: Target texture was NULL!\n");
+	if (render_texture == NULL) {
+		printf("Error: Render texture was NULL!\n");
 		return 1;
 	}
 
-	SDL_LockTexture(target_texture, NULL, (void **) &pixels, &pitch);
-
-	pixel_count = target_rect.w * target_rect.h;
-	pixels_rendered = 0;
-
 	viewport_t viewport;
-	viewport.width = target_rect.w;
-	viewport.height = target_rect.h;
+	viewport.width = render_rect.w;
+	viewport.height = render_rect.h;
 
 	camera = setup_camera(viewport, position, rotation);
 
-	if (!use_msaa || is_preview) {
+	if (!use_msaa || target == RENDER_TARGET_PREVIEW) {
 		camera.samples = CAMERA_SAMPLES_ONE;
 	} else {
 		camera.samples = CAMERA_SAMPLES_FOUR;
 	}
 
-	for (int y = 0; y < target_rect.h; y++) {
-		for (int x = 0; x < target_rect.w; x++) {
-			int index = (y * target_rect.w * 4) + (x * 4);
+	for (int y = rect.y; y < rect.y + rect.h; y++) {
+		for (int x = rect.x; x < rect.x + rect.w; x++) {
+			int index = (y * render_rect.w * 4) + (x * 4);
 
 			rvec3_t color;
 			point_t point;
@@ -97,47 +143,43 @@ int render(int is_preview) {
 
 			trace_pixel(RVEC_OUT(color), camera, point);
 
-			pixels[index + 2] = color[0] * 255;
-			pixels[index + 1] = color[1] * 255;
-			pixels[index + 0] = color[2] * 255;
+			render_pixels[index + 2] = color[0] * 255;
+			render_pixels[index + 1] = color[1] * 255;
+			render_pixels[index + 0] = color[2] * 255;
 
 			pixels_rendered++;
 		}
 	}
 
-	SDL_UnlockTexture(target_texture);
-
-    // We have to rewrite our pixel data for BMPs
-    uint8_t* fix_pixels = new uint8_t[target_rect.w * target_rect.h * 3];
-    for (int y = 0; y < target_rect.h; y++) {
-        int inv_y = target_rect.h - 1 - y;
-
-        for (int x = 0; x < target_rect.w; x++) {
-            int old_index = (y * target_rect.w * 4) + (x * 4);
-            int fix_index = (inv_y * target_rect.w * 3) + (x * 3);
-
-            fix_pixels[fix_index + 2] = pixels[old_index + 2];
-            fix_pixels[fix_index + 1] = pixels[old_index + 1];
-            fix_pixels[fix_index + 0] = pixels[old_index + 0];
-        }
-    }
-
-    write_bmp("out.bmp", texture_rect.w, texture_rect.h, (char*)fix_pixels);
-
-    delete[] fix_pixels;
-
 	return 0;
 }
 
 int render_loop(void* data) {
-    time_render_start = SDL_GetTicks();
-	int state = render(0);
-    time_render_end = SDL_GetTicks();
+    thread_args_t* args = (thread_args_t*)data;
 
-	should_render = 0;
-	render_thread = NULL;
+	int state = render(RENDER_TARGET_SCREEN, args->rect);
 
+    *args->pp_thread = NULL;
+    render_semaphore--;
+
+    free(args);
 	return state;
+}
+
+inline int threads_done() {
+    return render_thread == NULL && render_thread2 == NULL;
+}
+
+inline void wait_for_threads() {
+    if (render_thread != NULL) {
+        int status;
+        SDL_WaitThread(render_thread, &status);
+    }
+
+    if (render_thread2 != NULL) {
+        int status;
+        SDL_WaitThread(render_thread2, &status);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -185,6 +227,8 @@ int main(int argc, char** argv) {
     preview_rect.y = 0;
     preview_rect.w = PREVIEW_SIZE;
     preview_rect.h = PREVIEW_SIZE;
+
+    int concurrency = SDL_GetCPUCount();
 
     // Create a temporary camera to get the default values
     if (1) {
@@ -360,19 +404,40 @@ int main(int argc, char** argv) {
             rvec3_add(RVEC_OUT(position), position, forward_vec);
         }
 
-        if (draw_preview && !should_render && render_thread == NULL) {
-            render(1);
+        if (draw_preview && !should_render && threads_done()) {
+            begin_render(RENDER_TARGET_PREVIEW);
+            render(RENDER_TARGET_PREVIEW, render_rect);
+            end_render();
         }
 
-        if (should_render && render_thread == NULL) {
-            render_thread = SDL_CreateThread(render_loop, "RTEverywhereRenderLoop", NULL);
+        if (should_render && threads_done()) {
+            begin_render(RENDER_TARGET_SCREEN);
+
+            render_semaphore = 2;
+
+            thread_args_t* thread0args = (thread_args_t*)malloc(sizeof(thread_args_t));
+            thread_args_t* thread1args = (thread_args_t*)malloc(sizeof(thread_args_t));
+
+            thread0args->pp_thread = &render_thread;
+            thread0args->rect = render_rect;
+            thread0args->rect.w /= 2;
+
+            thread1args->pp_thread = &render_thread2;
+            thread1args->rect = thread0args->rect;
+            thread1args->rect.x += thread0args->rect.w;
+
+            render_thread = SDL_CreateThread(render_loop, "RTEverywhereRenderLoop0", thread0args);
+            render_thread2 = SDL_CreateThread(render_loop, "RTEverywhereRenderLoop1", thread1args);
+
+            should_render = 0;
         }
 
-        if (recreate_texture && !should_render) {
-            if (render_thread != NULL) {
-                int status;
-                SDL_WaitThread(render_thread, &status);
-            }
+        if (render_semaphore == 0 && threads_done() && render_lock) {
+            end_render();
+        }
+
+        if (recreate_texture && render_semaphore == 0) {
+            wait_for_threads();
 
             SDL_DestroyTexture(texture);
             texture = NULL;

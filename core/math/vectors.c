@@ -15,29 +15,27 @@
 //
 // rvec3_t
 //
-void rvec3_copy(rvec3_out_t dst, const rvec3_t src) {
+inline void rvec3_copy(rvec3_out_t dst, const rvec3_t src) {
 #ifndef VECTORS_ARE_VECTORIZED
-
-#if !defined(RTE_NO_STDLIB)
-	memcpy(dst, src, sizeof(rvec3_t));
-#else
-	dst[0] = src[0];
-	dst[1] = src[1];
-	dst[2] = src[2];
-#endif
-
+    #if !defined(RTE_NO_STDLIB)
+    	memcpy(dst, src, sizeof(rvec3_t));
+    #else
+    	dst[0] = src[0];
+    	dst[1] = src[1];
+    	dst[2] = src[2];
+    #endif
 #else
 	RVEC_OUT_DEREF(dst) = src;
 #endif
 }
 
-void rvec3_copy_scalar(rvec3_out_t dst, real_t s) {
+inline void rvec3_copy_scalar(rvec3_out_t dst, real_t s) {
 	RVEC_OUT_DEREF(dst)[0] = s;
 	RVEC_OUT_DEREF(dst)[1] = s;
 	RVEC_OUT_DEREF(dst)[2] = s;
 }
 
-void rvec3_copy_rvec4(rvec3_out_t dst, const rvec4_t src) {
+inline void rvec3_copy_rvec4(rvec3_out_t dst, const rvec4_t src) {
 #if !defined(RTE_NO_STDLIB) && !defined(VECTORS_ARE_VECTORIZED)
 	memcpy(dst, src, sizeof(rvec3_t));
 #else
@@ -52,7 +50,7 @@ real_t rvec3_length_sqr(const rvec3_t vec) {
 }
 
 real_t rvec3_length(const rvec3_t vec) {
-	return (real_t)sqrt(rvec3_dot(vec, vec));
+	return real_sqrt(rvec3_dot(vec, vec));
 }
 
 real_t rvec3_dot(const rvec3_t a, const rvec3_t b) {

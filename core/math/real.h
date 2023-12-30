@@ -21,22 +21,35 @@
 
 #endif
 
-extern real_t real_min(real_t r, real_t min);
-extern real_t real_max(real_t r, real_t max);
+// =================
+//  Real Arithmetic
+// =================
+extern inline real_t real_min(real_t r, real_t min);
+extern inline real_t real_max(real_t r, real_t max);
 
-extern real_t real_mod(real_t x, real_t y);
+extern inline real_t real_mod(real_t x, real_t y);
 
-extern real_t real_saturate(real_t r);
-extern real_t real_fract(real_t r);
+extern inline real_t real_saturate(real_t r);
+extern inline real_t real_fract(real_t r);
 
-extern real_t real_floor(real_t r);
-extern real_t real_ceil(real_t r);
+extern inline real_t real_floor(real_t r);
+extern inline real_t real_ceil(real_t r);
 
-extern real_t real_pow(real_t r, real_t e);
+extern inline real_t real_pow(real_t r, real_t e);
 
-extern real_t real_to_radians(real_t r);
-extern real_t real_to_degrees(real_t r);
+extern inline real_t real_remap(real_t r, real_t min, real_t max);
 
-extern real_t real_remap(real_t r, real_t min, real_t max);
+extern inline real_t real_sqrt(real_t r);
+
+// ===================
+//  Real Trigonometry
+// ===================
+
+extern inline real_t real_sin(real_t r);
+extern inline real_t real_cos(real_t r);
+extern inline real_t real_tan(real_t r);
+
+extern inline real_t real_to_radians(real_t r);
+extern inline real_t real_to_degrees(real_t r);
 
 #endif //RTEVERYWHERE_REAL_H

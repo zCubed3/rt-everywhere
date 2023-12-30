@@ -22,6 +22,11 @@ extern "C" {
 
 #include "shapes/sphere.h"
 
+typedef enum rte_bool {
+    RTE_FALSE = 0,
+    RTE_TRUE = 1
+} rte_bool_e;
+
 typedef struct viewport {
 	unsigned int width;
 	unsigned int height;

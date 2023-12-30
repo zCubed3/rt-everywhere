@@ -57,9 +57,9 @@ typedef real_t rvec4_t[4];
 //
 #define RVEC3_RGB(R, G, B) ((rvec3_t){(real_t)R / REAL(255.0), (real_t)G / REAL(255.0), (real_t)B / REAL(255.0)})
 
-extern void rvec3_copy(rvec3_out_t dst, const rvec3_t src);
-extern void rvec3_copy_scalar(rvec3_out_t dst, real_t s);
-extern void rvec3_copy_rvec4(rvec3_out_t dst, const rvec4_t src);
+extern inline void rvec3_copy(rvec3_out_t dst, const rvec3_t src);
+extern inline void rvec3_copy_scalar(rvec3_out_t dst, real_t s);
+extern inline void rvec3_copy_rvec4(rvec3_out_t dst, const rvec4_t src);
 
 extern real_t rvec3_length_sqr(const rvec3_t vec);
 extern real_t rvec3_length(const rvec3_t vec);
