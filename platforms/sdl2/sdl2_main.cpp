@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
 
     int sdl_renderer_flags = SDL_RENDERER_PRESENTVSYNC;
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || 1
     sdl_renderer_flags |= SDL_RENDERER_SOFTWARE;
 #else
     sdl_renderer_flags |= SDL_RENDERER_ACCELERATED;
@@ -521,7 +521,7 @@ int main(int argc, char** argv) {
 
             ImGui::Checkbox("Manual Size?", (bool*)&manual_size);
 
-            ImGui::DragInt("Concurrency (Threads)", &actual_concurrency, 1.0F, 1, actual_concurrency);
+            ImGui::DragInt("Concurrency (Threads)", &actual_concurrency, 1.0F, 1, sdl_concurrency);
 
             if (ImGui::Button("Recreate image")) {
                 recreate_texture = 1;
