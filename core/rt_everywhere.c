@@ -11,7 +11,9 @@
 
 #define CAMERA_FOV 45
 #define CAMERA_NEAR REAL(0.001)
-#define CAMERA_FAR REAL(1000.0)
+#define CAMERA_FAR REAL(100.0)
+
+#define TONEMAP_ACES
 
 //#define RTE_SIMPLE_SCENE
 
@@ -94,7 +96,7 @@ void generate_spheres() {
     }
 }
 
-void screen_to_viewport(rvec2_out_t dst, viewport_t viewport, point_t point) {
+void screen_to_viewport(rvec2_out_t dst, rte_viewport_t viewport, rte_point_t point) {
 	// Note: When x == 0, x / width = 0, but x never hits width
 	// Therefore we must add half the texel size to x to account for this
 	real_t tex_x = REAL(1.0) / (real_t)viewport.width;
@@ -107,8 +109,8 @@ void screen_to_viewport(rvec2_out_t dst, viewport_t viewport, point_t point) {
 	RVEC_OUT_DEREF(dst)[1] = ((v + (tex_y / REAL(2.0))) * REAL(2.0)) - REAL(1.0);
 }
 
-camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
-	camera_t cam;
+rte_camera_t rte_setup_camera(rte_viewport_t viewport, rvec3_t position, rvec3_t rotation) {
+	rte_camera_t cam;
 
 	cam.samples = CAMERA_SAMPLES_ONE;
 
@@ -136,7 +138,7 @@ camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation) {
 	return cam;
 }
 
-camera_t default_camera(viewport_t viewport) {
+rte_camera_t rte_default_camera(rte_viewport_t viewport) {
 	rvec3_t origin = {0, 1, -2};
 	rvec3_t target = {0, REAL(0.0), SPHERE_Z_OFFSET};
 
@@ -147,10 +149,310 @@ camera_t default_camera(viewport_t viewport) {
 	real_t yaw = real_to_degrees((real_t)atan2(direction[0], direction[2]));
 	real_t pitch = real_to_degrees((real_t)asin(direction[1]));
 
-	return setup_camera(viewport, origin, (rvec3_t){pitch, -yaw, 0});
+	return rte_setup_camera(viewport, origin, (rvec3_t) {pitch, -yaw, 0});
 }
 
-int trace_scene(fragment_t *p_fragment, ray_t ray) {
+rte_scene_t rte_default_scene() {
+    rte_scene_t scene;
+
+    rvec3_copy(RVEC_OUT(scene.sun_light.color), RVEC3_RGB(255, 255, 255));
+
+    rvec3_copy(RVEC_OUT(scene.sun_light.forward), (rvec3_t){REAL(0.5), REAL(1.0), REAL(-1.0)});
+    rvec3_normalize(RVEC_OUT(scene.sun_light.forward));
+
+    scene.sun_light.intensity = 1;
+
+    return scene;
+}
+
+//#define RAYMARCHING
+
+void tonemap_aces(rvec3_out_t color) {
+    const rmat3_t m1 = {
+        { REAL(0.59719), REAL(0.35458), REAL(0.04823) },
+        { REAL(0.07600), REAL(0.90834), REAL(0.01566) },
+        { REAL(0.02840), REAL(0.13383), REAL(0.83777) }
+    };
+
+    const rmat3_t m2 = {
+        { REAL(1.60475), REAL(-0.53108), REAL(-0.07367) },
+        { REAL(-0.10208), REAL(1.10813), REAL(-0.00605) },
+        { REAL(-0.00327), REAL(-0.07276), REAL(1.07602) }
+    };
+
+    rvec3_t color_copy, v3;
+    rvec3_copy(RVEC_OUT(color_copy), RVEC_OUT_DEREF(color));
+    rvec3_mul_scalar(RVEC_OUT(color_copy), color_copy, REAL(1.8));
+    rmat3_mul_rvec3(RVEC_OUT(v3), m1, color_copy);
+
+    rvec3_t a, b;
+
+    rvec3_add_scalar(RVEC_OUT(a), v3, REAL(0.0245786));
+    rvec3_mul(RVEC_OUT(a), a, v3);
+    rvec3_sub_scalar(RVEC_OUT(a), a, REAL(0.000090537));
+
+    rvec3_mul_scalar(RVEC_OUT(b), v3, REAL(0.983729));
+    rvec3_add_scalar(RVEC_OUT(b), b, REAL(0.4329510));
+    rvec3_mul(RVEC_OUT(b), b, v3);
+    rvec3_add_scalar(RVEC_OUT(b), b, REAL(0.238081));
+
+    rvec3_t c;
+    rvec3_div(RVEC_OUT(c), a, b);
+
+    rvec3_copy(RVEC_OUT(v3), c);
+    rmat3_mul_rvec3(color, m2, v3);
+}
+
+#ifdef RAYMARCHING
+
+const real_t EPSILON = REAL(0.001);
+const real_t NORMAL_EPSILON = REAL(0.001);
+
+const int MAX_SHADOW_STEPS = 64;
+const real_t SHADOW_SOFT = REAL(64.0);
+const real_t SHADOW_EPSILON = REAL(0.000001);
+const real_t SHADOW_BIAS = REAL(0.00001);
+
+inline real_t sdf_op_subtract(const real_t a, const real_t b) {
+    return real_max(-a, b);
+}
+
+inline real_t sdf_op_union(const real_t a, const real_t b) {
+    return real_min(a, b);
+}
+
+inline real_t sdf_sphere(const rvec3_t point, const real_t radius) {
+    return rvec3_length(point) - radius;
+}
+
+inline real_t sdf_plane(const rvec3_t point, const rvec3_t normal, const real_t elevation) {
+    return rvec3_dot(point, normal) + elevation;
+}
+
+real_t march_scene(const rvec3_t point) {
+    const rvec3_t ground_up = {0, 1, 0};
+
+    rvec3_t origin;
+    rvec3_copy(RVEC_OUT(origin), point);
+    rvec3_add(RVEC_OUT(origin), origin, (rvec3_t){0, 0, -1});
+
+    real_t ground_sdf = sdf_plane(point, ground_up, REAL(1.0));
+
+    real_t sphere1 = sdf_sphere(point, 1.0F);
+    real_t sphere2 = sdf_sphere(origin, 1.0F);
+
+    real_t spheres = sdf_op_subtract(sphere1, sphere2);
+
+    return sdf_op_union(spheres, ground_sdf);
+}
+
+void march_normal(rvec3_out_t normal, const rvec3_t point) {
+    rvec3_t s0, s1, s2, s3;
+
+    rvec3_t n0 = { 1, -1, -1 };
+    rvec3_t n1 = { -1, -1, 1 };
+    rvec3_t n2 = { -1, 1, -1 };
+    rvec3_t n3 = { 1, 1, 1 };
+
+    rvec3_copy(RVEC_OUT(s0), point);
+    rvec3_copy(RVEC_OUT(s1), point);
+    rvec3_copy(RVEC_OUT(s2), point);
+    rvec3_copy(RVEC_OUT(s3), point);
+
+    rvec3_add(RVEC_OUT(s0), s0, (rvec3_t){ NORMAL_EPSILON, -NORMAL_EPSILON, -NORMAL_EPSILON });
+    rvec3_add(RVEC_OUT(s1), s1, (rvec3_t){ -NORMAL_EPSILON, -NORMAL_EPSILON, NORMAL_EPSILON });
+    rvec3_add(RVEC_OUT(s2), s2, (rvec3_t){ -NORMAL_EPSILON, NORMAL_EPSILON, -NORMAL_EPSILON });
+    rvec3_add(RVEC_OUT(s3), s3, (rvec3_t){ NORMAL_EPSILON, NORMAL_EPSILON, NORMAL_EPSILON });
+
+    real_t d0 = march_scene(s0);
+    real_t d1 = march_scene(s1);
+    real_t d2 = march_scene(s2);
+    real_t d3 = march_scene(s3);
+
+    rvec3_mul_scalar(RVEC_OUT(n0), n0, d0);
+    rvec3_mul_scalar(RVEC_OUT(n1), n1, d1);
+    rvec3_mul_scalar(RVEC_OUT(n2), n2, d2);
+    rvec3_mul_scalar(RVEC_OUT(n3), n3, d3);
+
+    rvec3_copy_scalar(normal, REAL(0.0));
+    rvec3_add(normal, n0, n1);
+    rvec3_add(normal, RVEC_OUT_DEREF(normal), n2);
+    rvec3_add(normal, RVEC_OUT_DEREF(normal), n3);
+
+    rvec3_normalize(normal);
+
+    //return normalize(
+    //    k.xyy * MarchScene(p + k.xyy * NORMAL_EPSILON).x +
+    //    k.yyx * MarchScene(p + k.yyx * NORMAL_EPSILON).x +
+    //    k.yxy * MarchScene(p + k.yxy * NORMAL_EPSILON).x +
+    //    k.xxx * MarchScene(p + k.xxx * NORMAL_EPSILON).x
+    //);
+}
+
+real_t trace_shadow(const rte_ray_t ray) {
+    real_t travel = 0;
+    real_t n = 1;
+
+    rvec3_t step;
+    rvec3_copy(RVEC_OUT(step), ray.origin);
+
+    for (int s = 0; s < MAX_SHADOW_STEPS; s++) {
+        real_t sdf = march_scene(step);
+
+        if (sdf <= SHADOW_EPSILON) {
+            break;
+        }
+
+        rvec3_t advance;
+        rvec3_mul_scalar(RVEC_OUT(advance), ray.direction, sdf);
+
+        rvec3_add(RVEC_OUT(step), step, advance);
+
+        n = real_min(n, SHADOW_SOFT * sdf / travel);
+        travel += sdf;
+    }
+
+    return n;
+}
+
+int trace_scene(rte_fragment_t *p_fragment, const rte_ray_t ray, const rte_scene_t scene) {
+    const int MAX_STEPS = 128;
+
+    rte_ray_t step = ray;
+    int iter = 0;
+
+    for (float d = 0; d < CAMERA_FAR || iter < MAX_STEPS;) {
+        real_t sdf = march_scene(step.origin);
+
+        if (sdf <= EPSILON) {
+            rvec3_copy(RVEC_OUT(p_fragment->position), step.origin);
+            march_normal(RVEC_OUT(p_fragment->normal), step.origin);
+
+            rvec3_copy(RVEC_OUT(p_fragment->albedo), RVEC3_RGB(255, 0, 0));
+
+            real_t heat = iter / (real_t)MAX_STEPS;
+            rvec3_copy_scalar(RVEC_OUT(p_fragment->glow), heat);
+
+            return 1;
+        }
+
+        rvec3_t advance;
+        rvec3_mul_scalar(RVEC_OUT(advance), step.direction, sdf);
+        rvec3_add(RVEC_OUT(step.origin), step.origin, advance);
+
+        d += sdf;
+        iter++;
+    }
+
+    return 0;
+}
+
+void shade_fragment(rvec3_out_t dst_col, const rte_fragment_t fragment, const rte_ray_t ray, const rte_scene_t scene) {
+    const rvec3_t light_dir = {REAL(0.666667), REAL(0.666667), REAL(-0.333333)};
+
+    real_t lambert = real_saturate(rvec3_dot(fragment.normal, light_dir)) * scene.sun_light.intensity;
+
+    //rvec3_copy_scalar(dst_col, fragment.metallic / 100.0F);
+    //rvec3_copy(dst_col, fragment.glow);
+
+    rvec3_t bias;
+    rvec3_mul_scalar(RVEC_OUT(bias), fragment.normal, SHADOW_BIAS);
+
+    rte_ray_t shadow_ray;
+    rvec3_add(RVEC_OUT(shadow_ray.origin), fragment.position, bias);
+    rvec3_mul_scalar(RVEC_OUT(shadow_ray.direction), scene.sun_light.forward, REAL(1.0));
+
+    real_t shadow = trace_shadow(shadow_ray);
+
+    real_t energy = shadow * lambert;
+
+    rvec3_mul_scalar(dst_col, fragment.albedo, energy);
+    tonemap_aces(dst_col);
+}
+
+void trace_pixel(rvec3_out_t dst_col, const trace_t trace) {
+    rvec3_copy(dst_col, (rvec3_t) {0, 0, 0});
+
+    real_t sub_tex_x = REAL(1.0) / (real_t)trace.camera.viewport.width;
+    real_t sub_tex_y = REAL(1.0) / (real_t)trace.camera.viewport.height;
+
+    int samples = 1;
+
+    if (trace.camera.samples == CAMERA_SAMPLES_FOUR) {
+        samples = 4;
+    }
+
+    // Clear color
+    for (int s = 0; s < samples; s++) {
+        // Set up the base ray
+        // It's jittered at a subpixel level when using MSAA
+        rvec2_t view_coord;
+        screen_to_viewport(RVEC_OUT(view_coord), trace.camera.viewport, trace.point);
+
+        if (samples == 4) {
+            if (s <= 1) {
+                view_coord[0] += sub_tex_x * REAL(0.5);
+            } else {
+                view_coord[0] -= sub_tex_x * REAL(0.5);
+            }
+
+            if (s % 2 == 0) {
+                view_coord[1] += sub_tex_y * REAL(0.5);
+            } else {
+                view_coord[1] -= sub_tex_y * REAL(0.5);
+            }
+        }
+
+        rte_ray_t ray;
+
+        rvec3_copy(RVEC_OUT(ray.direction), (rvec3_t) {view_coord[0], -view_coord[1], 1});
+
+#ifdef RTE_FLIP_Y
+        ray.direction[1] *= -1;
+#endif
+
+        rvec4_t pre_t;
+        rvec4_t post_t;
+
+        rvec4_copy_rvec3_w(RVEC_OUT(pre_t), ray.direction, REAL(1.0));
+        rmat4_mul_rvec4(RVEC_OUT(post_t), trace.camera.mat_vp_i, pre_t);
+
+        rvec3_copy_rvec4(RVEC_OUT(ray.direction), post_t);
+        rvec3_normalize(RVEC_OUT(ray.direction));
+
+        rvec4_copy_rvec3_w(RVEC_OUT(pre_t), (rvec3_t) {0, 0, 0}, REAL(1.0));
+        rmat4_mul_rvec4(RVEC_OUT(post_t), trace.camera.mat_v, pre_t);
+
+        rvec3_copy_rvec4(RVEC_OUT(ray.origin), post_t);
+
+        //
+        // Base pass
+        //
+        rvec3_t sample;
+        rte_fragment_t base_frag;
+
+        if (trace_scene(&base_frag, ray, trace.scene)) {
+            shade_fragment(RVEC_OUT(sample), base_frag, ray, trace.scene);
+        } else {
+            rvec3_copy(RVEC_OUT(sample), RVEC3_RGB(0, 0, 0));
+        }
+
+        rvec3_mul_scalar(RVEC_OUT(sample), sample, REAL(1.0) / (real_t)samples);
+        rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), sample);
+    }
+
+    //
+    // Final pass
+    //
+    if (trace.tonemapping == RTE_TONEMAP_ACES)
+        tonemap_aces(dst_col);
+
+    rvec3_saturate(dst_col);
+}
+
+#else
+
+int trace_scene(rte_fragment_t *p_fragment, const rte_ray_t ray, const rte_scene_t scene) {
 	int hit = 0;
 
 	p_fragment->material_type = MATERIAL_TYPE_PLASTIC;
@@ -225,13 +527,7 @@ int trace_scene(fragment_t *p_fragment, ray_t ray) {
 	return hit;
 }
 
-void shade_fragment(rvec3_out_t dst_col, fragment_t fragment, ray_t ray) {
-	// Clear the previous shading
-	rvec3_copy(dst_col, RVEC3_RGB(0, 0, 0));
-
-	rvec3_t light_dir = {REAL(1.0), REAL(1.0), REAL(-0.5)};
-	rvec3_normalize(RVEC_OUT(light_dir));
-
+void shade_fragment(rvec3_out_t dst_col, rte_fragment_t fragment, rte_ray_t ray, const rte_scene_t scene) {
 	rvec3_t bias;
 	rvec3_copy(RVEC_OUT(bias), fragment.normal);
 	rvec3_mul_scalar(RVEC_OUT(bias), bias, REAL(0.001));
@@ -241,27 +537,27 @@ void shade_fragment(rvec3_out_t dst_col, fragment_t fragment, ray_t ray) {
 	rvec3_mul_scalar(RVEC_OUT(view_dir), ray.direction, REAL(-1.0));
 
 	// Shadowing
-	fragment_t shadow_frag;
-	ray_t shadow_ray;
+	rte_fragment_t shadow_frag;
+	rte_ray_t shadow_ray;
 
 	rvec3_copy(RVEC_OUT(shadow_ray.origin), fragment.position);
 	rvec3_add(RVEC_OUT(shadow_ray.origin), shadow_ray.origin, bias);
 
-	rvec3_copy(RVEC_OUT(shadow_ray.direction), light_dir);
+	rvec3_mul_scalar(RVEC_OUT(shadow_ray.direction), scene.sun_light.forward, REAL(1.0));
 
-	int shadow = !trace_scene(&shadow_frag, shadow_ray);
+	int shadow = !trace_scene(&shadow_frag, shadow_ray, scene);
 
 	//
 	// Lambert shading
 	//
-	real_t lambert = real_saturate(rvec3_dot(fragment.normal, light_dir));
+	real_t lambert = real_saturate(rvec3_dot(fragment.normal, scene.sun_light.forward)) * scene.sun_light.intensity;
 	lambert *= (real_t)shadow;
 
 	//
 	// Blinn-phong
 	//
 	rvec3_t halfway;
-	rvec3_add(RVEC_OUT(halfway), view_dir, light_dir);
+	rvec3_add(RVEC_OUT(halfway), view_dir, scene.sun_light.forward);
 	rvec3_normalize(RVEC_OUT(halfway));
 
 	real_t blinn_phong = real_saturate(rvec3_dot(fragment.normal, halfway));
@@ -302,7 +598,7 @@ void shade_fragment(rvec3_out_t dst_col, fragment_t fragment, ray_t ray) {
 	rvec3_mul_scalar(RVEC_OUT(direct), direct, direct_fac);
 	rvec3_mul_scalar(RVEC_OUT(specular), specular, specular_fac);
 
-	rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), direct);
+	rvec3_copy(dst_col, direct);
 	rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), specular);
 
 	if (fragment.material_type != MATERIAL_TYPE_MIRROR) {
@@ -313,7 +609,7 @@ void shade_fragment(rvec3_out_t dst_col, fragment_t fragment, ray_t ray) {
 	rvec3_add(dst_col, RVEC_OUT_DEREF(dst_col), fragment.glow);
 }
 
-void shade_sky(rvec3_out_t dst_col, ray_t ray) {
+void shade_sky(rvec3_out_t dst_col, rte_ray_t ray) {
     // Dot against the sky
     const rvec3_t SKY_AXIS = {0, 1, 0};
 
@@ -325,15 +621,15 @@ void shade_sky(rvec3_out_t dst_col, ray_t ray) {
     rvec3_mul_scalar(dst_col, RVEC_OUT_DEREF(dst_col), dot);
 }
 
-void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
+void trace_pixel(rvec3_out_t dst_col, const trace_t trace) {
 	rvec3_copy(dst_col, (rvec3_t) {0, 0, 0});
 
-	real_t sub_tex_x = REAL(1.0) / (real_t)camera.viewport.width;
-	real_t sub_tex_y = REAL(1.0) / (real_t)camera.viewport.height;
+	real_t sub_tex_x = REAL(1.0) / (real_t)trace.camera.viewport.width;
+	real_t sub_tex_y = REAL(1.0) / (real_t)trace.camera.viewport.height;
 
 	int samples = 1;
 
-	if (camera.samples == CAMERA_SAMPLES_FOUR) {
+	if (trace.camera.samples == CAMERA_SAMPLES_FOUR) {
 		samples = 4;
 	}
 
@@ -342,7 +638,7 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 		// Set up the base ray
 		// It's jittered at a subpixel level when using MSAA
 		rvec2_t view_coord;
-		screen_to_viewport(RVEC_OUT(view_coord), camera.viewport, point);
+		screen_to_viewport(RVEC_OUT(view_coord), trace.camera.viewport, trace.point);
 
 		if (samples == 4) {
 			if (s <= 1) {
@@ -358,7 +654,7 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 			}
 		}
 
-		ray_t ray;
+		rte_ray_t ray;
 
 		rvec3_copy(RVEC_OUT(ray.direction), (rvec3_t) {view_coord[0], -view_coord[1], 1});
 
@@ -370,13 +666,13 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 		rvec4_t post_t;
 
 		rvec4_copy_rvec3_w(RVEC_OUT(pre_t), ray.direction, REAL(1.0));
-		rmat4_mul_rvec4(RVEC_OUT(post_t), camera.mat_vp_i, pre_t);
+		rmat4_mul_rvec4(RVEC_OUT(post_t), trace.camera.mat_vp_i, pre_t);
 
 		rvec3_copy_rvec4(RVEC_OUT(ray.direction), post_t);
 		rvec3_normalize(RVEC_OUT(ray.direction));
 
 		rvec4_copy_rvec3_w(RVEC_OUT(pre_t), (rvec3_t) {0, 0, 0}, REAL(1.0));
-		rmat4_mul_rvec4(RVEC_OUT(post_t), camera.mat_v, pre_t);
+		rmat4_mul_rvec4(RVEC_OUT(post_t), trace.camera.mat_v, pre_t);
 
 		rvec3_copy_rvec4(RVEC_OUT(ray.origin), post_t);
 
@@ -384,20 +680,20 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 		// Base pass
 		//
         rvec3_t sample;
-		fragment_t base_frag;
+		rte_fragment_t base_frag;
 
-        if (trace_scene(&base_frag, ray)) {
-			shade_fragment(RVEC_OUT(sample), base_frag, ray);
+        if (trace_scene(&base_frag, ray, trace.scene)) {
+			shade_fragment(RVEC_OUT(sample), base_frag, ray, trace.scene);
 
 			// Reflection
 			rvec3_t reflection;
             rvec3_copy(RVEC_OUT(reflection), RVEC3_RGB(0, 0, 0));
 
 			if (base_frag.material_type == MATERIAL_TYPE_MIRROR) {
-                const int MIRROR_BOUNCES = 5;
+                const int MIRROR_BOUNCES = 3;
 
-                fragment_t prior_frag = base_frag;
-                ray_t prior_ray = ray;
+                rte_fragment_t prior_frag = base_frag;
+                rte_ray_t prior_ray = ray;
 
                 rvec3_t energy;
 
@@ -408,8 +704,8 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
                     rvec3_copy(RVEC_OUT(bias), prior_frag.normal);
                     rvec3_mul_scalar(RVEC_OUT(bias), bias, REAL(0.001));
 
-                    fragment_t reflect_frag;
-                    ray_t reflect_ray;
+                    rte_fragment_t reflect_frag;
+                    rte_ray_t reflect_ray;
 
                     rvec3_copy(RVEC_OUT(reflect_ray.origin), prior_frag.position);
                     rvec3_add(RVEC_OUT(reflect_ray.origin), reflect_ray.origin, bias);
@@ -428,8 +724,8 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
                     rvec3_t local_reflection;
                     rvec3_t local_energy;
 
-                    if (trace_scene(&reflect_frag, reflect_ray)) {
-                        shade_fragment(RVEC_OUT(local_reflection), reflect_frag, reflect_ray);
+                    if (trace_scene(&reflect_frag, reflect_ray, trace.scene)) {
+                        shade_fragment(RVEC_OUT(local_reflection), reflect_frag, reflect_ray, trace.scene);
                         rvec3_copy(RVEC_OUT(local_energy), reflect_frag.albedo);
                     } else {
                         shade_sky(RVEC_OUT(local_reflection), reflect_ray);
@@ -464,5 +760,10 @@ void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point) {
 	//
 	// Final pass
 	//
+    if (trace.tonemapping == RTE_TONEMAP_ACES)
+        tonemap_aces(dst_col);
+
 	rvec3_saturate(dst_col);
 }
+
+#endif

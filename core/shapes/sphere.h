@@ -22,6 +22,6 @@ typedef struct sphere_intersect {
     real_t distance;
 } sphere_intersect_t;
 
-extern int sphere_ray_intersect(sphere_t sphere, ray_t ray, sphere_intersect_t* intersect);
+extern int sphere_ray_intersect(sphere_t sphere, rte_ray_t ray, sphere_intersect_t* intersect);
 
 #endif //RTEVERYWHERE_SPHERE_H

@@ -27,23 +27,23 @@ typedef enum rte_bool {
     RTE_TRUE = 1
 } rte_bool_e;
 
-typedef struct viewport {
+typedef struct rte_viewport {
 	unsigned int width;
 	unsigned int height;
-} viewport_t;
+} rte_viewport_t;
 
-typedef struct point {
+typedef struct rte_point {
 	unsigned int x;
 	unsigned int y;
-} point_t;
+} rte_point_t;
 
 typedef enum CAMERA_SAMPLES {
 	CAMERA_SAMPLES_ONE,
 	CAMERA_SAMPLES_FOUR
 } CAMERA_SAMPLES_E;
 
-typedef struct camera {
-	viewport_t viewport;
+typedef struct rte_camera {
+	rte_viewport_t viewport;
 	rvec3_t position;
 	rvec3_t rotation;
 
@@ -52,7 +52,7 @@ typedef struct camera {
 	rmat4_t mat_vp_i;
 
 	CAMERA_SAMPLES_E samples;
-} camera_t;
+} rte_camera_t;
 
 typedef enum MATERIAL_TYPE {
 	MATERIAL_TYPE_PLASTIC,
@@ -60,7 +60,7 @@ typedef enum MATERIAL_TYPE {
 	MATERIAL_TYPE_MIRROR
 } MATERIAL_TYPE_E;
 
-typedef struct fragment {
+typedef struct rte_fragment {
 	rvec3_t position;
 	rvec3_t normal;
 	rvec3_t albedo;
@@ -70,17 +70,42 @@ typedef struct fragment {
 	real_t metallic;
 
 	MATERIAL_TYPE_E material_type;
-} fragment_t;
+} rte_fragment_t;
 
-extern void screen_to_viewport(rvec2_out_t dst, viewport_t viewport, point_t point);
+typedef enum rte_tonemap {
+    RTE_TONEMAP_NONE,
+    RTE_TONEMAP_ACES
+} rte_tonemap_e;
 
-extern camera_t setup_camera(viewport_t viewport, rvec3_t position, rvec3_t rotation);
-extern camera_t default_camera(viewport_t viewport);
+typedef struct rte_light {
+    rvec3_t position;
+    rvec3_t forward;
+    rvec3_t color;
+    real_t intensity;
+} rte_light_t;
 
-extern int trace_scene(fragment_t *p_fragment, ray_t ray);
-extern void shade_fragment(rvec3_out_t dst_col, fragment_t fragment, ray_t ray);
+typedef struct rte_scene {
+    rte_light_t sun_light;
+} rte_scene_t;
 
-extern void trace_pixel(rvec3_out_t dst_col, camera_t camera, point_t point);
+typedef struct trace {
+    rte_scene_t scene;
+    rte_camera_t camera;
+    rte_point_t point;
+    rte_tonemap_e tonemapping;
+} trace_t;
+
+extern void screen_to_viewport(rvec2_out_t dst, rte_viewport_t viewport, rte_point_t point);
+
+extern rte_camera_t rte_setup_camera(rte_viewport_t viewport, rvec3_t position, rvec3_t rotation);
+extern rte_camera_t rte_default_camera(rte_viewport_t viewport);
+
+extern rte_scene_t rte_default_scene();
+
+extern int trace_scene(rte_fragment_t *p_fragment, const rte_ray_t ray, const rte_scene_t scene);
+extern void shade_fragment(rvec3_out_t dst_col, const rte_fragment_t fragment, const rte_ray_t ray, const rte_scene_t scene);
+
+extern void trace_pixel(rvec3_out_t dst_col, const trace_t trace);
 
 #ifdef __cplusplus
 };

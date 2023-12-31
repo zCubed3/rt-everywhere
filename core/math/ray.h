@@ -8,6 +8,6 @@
 typedef struct ray {
 	rvec3_t origin;
 	rvec3_t direction;
-} ray_t;
+} rte_ray_t;
 
 #endif //RTEVERYWHERE_RAY_H

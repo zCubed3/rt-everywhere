@@ -5,6 +5,8 @@
 #ifndef RTEVERYWHERE_REAL_H
 #define RTEVERYWHERE_REAL_H
 
+//#define REAL_IS_DOUBLE
+
 #ifndef REAL_IS_DOUBLE
 
 //typedef float real_t;

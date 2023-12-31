@@ -4,7 +4,7 @@
 
 #include <math.h>
 
-int sphere_ray_intersect(sphere_t sphere, ray_t ray, sphere_intersect_t* intersect) {
+int sphere_ray_intersect(sphere_t sphere, rte_ray_t ray, sphere_intersect_t* intersect) {
 	rvec3_copy(RVEC_OUT(intersect->point), (rvec3_t){0, 0, 0});
 	rvec3_copy(RVEC_OUT(intersect->normal), (rvec3_t){0, 0, 0});
 	intersect->distance = 0;

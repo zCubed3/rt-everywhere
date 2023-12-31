@@ -289,3 +289,17 @@ void rmat4_copy_rows(rmat4_t dst, const rvec4_t r0, const rvec4_t r1, const rvec
 	}
 #endif
 }
+
+void rmat3_transpose(rmat3_t dst, const rmat3_t src) {
+    for (int x = 0; x < 3; x++) {
+        for (int y = 0; y < 3; y++) {
+            dst[x][y] = src[y][x];
+        }
+    }
+}
+
+void rmat3_mul_rvec3(rvec3_out_t dst, const rmat3_t mat, const rvec3_t vec) {
+    RVEC_OUT_DEREF(dst)[0] = vec[0] * mat[0][0] + vec[1] * mat[0][1] + vec[2] * mat[0][2];
+    RVEC_OUT_DEREF(dst)[1] = vec[0] * mat[1][0] + vec[1] * mat[1][1] + vec[2] * mat[1][2];
+    RVEC_OUT_DEREF(dst)[2] = vec[0] * mat[2][0] + vec[1] * mat[2][1] + vec[2] * mat[2][2];
+}

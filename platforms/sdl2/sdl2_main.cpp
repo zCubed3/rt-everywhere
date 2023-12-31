@@ -19,7 +19,8 @@ extern "C" {
 #include <backends/imgui_impl_sdlrenderer2.h>
 #endif
 
-#define PREVIEW_SIZE 128
+#define PREVIEW_SIZE_X 228
+#define PREVIEW_SIZE_Y 128
 
 int pixels_rendered = 0;
 int pixel_count = 1;
@@ -51,7 +52,9 @@ int sdl_concurrency;
 int actual_concurrency = 0;
 int render_concurrency = 0;
 
-camera_t camera;
+rte_camera_t camera;
+rte_scene_t scene;
+rte_tonemap_e tonemapping = RTE_TONEMAP_NONE;
 
 typedef enum render_target {
     RENDER_TARGET_SCREEN,
@@ -61,6 +64,7 @@ typedef enum render_target {
 typedef struct render_thread {
     SDL_Thread** pp_thread;
     SDL_Rect rect;
+    int thread_index;
 } render_thread_t;
 
 void get_rgb(rvec3_out_t dst, const uint8_t* src, int x, int y, int width, int stride) {
@@ -123,28 +127,34 @@ int render(render_target_e target, SDL_Rect rect) {
 		return 1;
 	}
 
-	viewport_t viewport;
+	rte_viewport_t viewport;
 	viewport.width = render_rect.w;
 	viewport.height = render_rect.h;
 
-	camera = setup_camera(viewport, position, rotation);
+    camera = rte_setup_camera(viewport, position, rotation);
 
 	if (!use_msaa || target == RENDER_TARGET_PREVIEW) {
-		camera.samples = CAMERA_SAMPLES_ONE;
+        camera.samples = CAMERA_SAMPLES_ONE;
 	} else {
-		camera.samples = CAMERA_SAMPLES_FOUR;
+        camera.samples = CAMERA_SAMPLES_FOUR;
 	}
+
+    trace_t trace;
+
+    trace.camera = camera;
+    trace.scene = scene;
+    trace.tonemapping = tonemapping;
 
 	for (int y = rect.y; y < rect.y + rect.h; y++) {
 		for (int x = rect.x; x < rect.x + rect.w; x++) {
 			int index = (y * render_rect.w * 4) + (x * 4);
 
 			rvec3_t color;
-			point_t point;
-			point.x = x;
-			point.y = y;
 
-			trace_pixel(RVEC_OUT(color), camera, point);
+            trace.point.x = x;
+            trace.point.y = y;
+
+			trace_pixel(RVEC_OUT(color), trace);
 
 			render_pixels[index + 2] = color[0] * 255;
 			render_pixels[index + 1] = color[1] * 255;
@@ -160,13 +170,13 @@ int render(render_target_e target, SDL_Rect rect) {
 int render_loop(void* data) {
     render_thread_t* args = (render_thread_t*)data;
 
-	int state = render(RENDER_TARGET_SCREEN, args->rect);
+    int status = render(RENDER_TARGET_SCREEN, args->rect);
 
     *args->pp_thread = NULL;
     render_semaphore--;
 
     free(args);
-	return state;
+	return 0;
 }
 
 inline int threads_done() {
@@ -202,8 +212,8 @@ int main(int argc, char** argv) {
         "RT Everywhere (SDL2)",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        800,
-        600,
+        640,
+        360,
         SDL_WINDOW_RESIZABLE
     );
 
@@ -232,24 +242,26 @@ int main(int argc, char** argv) {
         renderer,
         SDL_PIXELFORMAT_ARGB8888,
         SDL_TEXTUREACCESS_STREAMING,
-        PREVIEW_SIZE,
-        PREVIEW_SIZE
+        PREVIEW_SIZE_X,
+        PREVIEW_SIZE_Y
     );
 
     preview_rect.x = 0;
     preview_rect.y = 0;
-    preview_rect.w = PREVIEW_SIZE;
-    preview_rect.h = PREVIEW_SIZE;
+    preview_rect.w = PREVIEW_SIZE_X;
+    preview_rect.h = PREVIEW_SIZE_Y;
 
     sdl_concurrency = SDL_GetCPUCount();
     actual_concurrency = sdl_concurrency;
 
     // Create a temporary camera to get the default values
     if (1) {
-        camera_t temp = default_camera({64, 64});
+        rte_camera_t temp = rte_default_camera({64, 64});
         rvec3_copy(RVEC_OUT(position), temp.position);
         rvec3_copy(RVEC_OUT(rotation), temp.rotation);
     }
+
+    scene = rte_default_scene();
 
 #ifdef RTEVERYWHERE_IMGUI
     ImGuiContext* imgui_context = ImGui::CreateContext();
@@ -279,6 +291,8 @@ int main(int argc, char** argv) {
     int s_down = 0;
     int a_down = 0;
     int d_down = 0;
+    int q_down = 0;
+    int e_down = 0;
 
     while (run) {
         int draw_preview = 0;
@@ -316,6 +330,14 @@ int main(int argc, char** argv) {
                 if (event.key.keysym.scancode == SDL_SCANCODE_D) {
                     d_down = 1;
                 }
+
+                if (event.key.keysym.scancode == SDL_SCANCODE_Q) {
+                    q_down = 1;
+                }
+
+                if (event.key.keysym.scancode == SDL_SCANCODE_E) {
+                    e_down = 1;
+                }
             }
 
             if (event.type == SDL_KEYUP) {
@@ -333,6 +355,14 @@ int main(int argc, char** argv) {
 
                 if (event.key.keysym.scancode == SDL_SCANCODE_D) {
                     d_down = 0;
+                }
+
+                if (event.key.keysym.scancode == SDL_SCANCODE_Q) {
+                    q_down = 0;
+                }
+
+                if (event.key.keysym.scancode == SDL_SCANCODE_E) {
+                    e_down = 0;
                 }
             }
 
@@ -363,9 +393,10 @@ int main(int argc, char** argv) {
             draw_preview = 1;
         }
 
-        if ((w_down || s_down || a_down || d_down) && lock_cursor) {
-            float move_x = 0;
-            float move_z = 0;
+        if ((w_down || s_down || a_down || d_down || q_down || e_down) && lock_cursor) {
+            real_t move_x = 0;
+            real_t move_y = 0;
+            real_t move_z = 0;
 
             if (w_down) {
                 move_z -= 1;
@@ -375,6 +406,7 @@ int main(int argc, char** argv) {
                 move_z += 1;
             }
 
+
             if (a_down) {
                 move_x -= 1;
             }
@@ -383,8 +415,25 @@ int main(int argc, char** argv) {
                 move_x += 1;
             }
 
-            move_x *= delta_time;
-            move_z *= delta_time;
+
+            if (q_down) {
+                move_y -= 1;
+            }
+
+            if (e_down) {
+                move_y += 1;
+            }
+
+            SDL_Keymod mod = SDL_GetModState();
+
+            real_t gear = REAL(1.0);
+
+            if (mod & (KMOD_LSHIFT | KMOD_RSHIFT))
+                gear = REAL(4.0);
+
+            move_x *= delta_time * gear;
+            move_y *= delta_time * gear;
+            move_z *= delta_time * gear;
 
             // Calculate the right and forward directions of the current rotation
             rmat4_t rot_matrix;
@@ -395,26 +444,35 @@ int main(int argc, char** argv) {
             rmat4_copy(rot_matrix, rot_matrix_t);
 
             rvec4_t right = {1, 0, 0, 0};
+            rvec4_t up = {0, 1, 0, 0};
             rvec4_t forward = {0, 0, 1, 0};
 
             rvec4_t rel_right;
+            rvec4_t rel_up;
             rvec4_t rel_forward;
 
             rmat4_mul_rvec4(RVEC_OUT(rel_right), rot_matrix, right);
+            rmat4_mul_rvec4(RVEC_OUT(rel_up), rot_matrix, up);
             rmat4_mul_rvec4(RVEC_OUT(rel_forward), rot_matrix, forward);
 
             rvec3_t right_vec;
+            rvec3_t up_vec;
             rvec3_t forward_vec;
 
             rvec3_copy_rvec4(RVEC_OUT(right_vec), rel_right);
             rvec3_normalize(RVEC_OUT(right_vec));
             rvec3_mul_scalar(RVEC_OUT(right_vec), right_vec, move_x);
 
+            rvec3_copy_rvec4(RVEC_OUT(up_vec), rel_up);
+            rvec3_normalize(RVEC_OUT(up_vec));
+            rvec3_mul_scalar(RVEC_OUT(up_vec), up_vec, move_y);
+
             rvec3_copy_rvec4(RVEC_OUT(forward_vec), rel_forward);
             rvec3_normalize(RVEC_OUT(forward_vec));
             rvec3_mul_scalar(RVEC_OUT(forward_vec), forward_vec, move_z);
 
             rvec3_add(RVEC_OUT(position), position, right_vec);
+            rvec3_add(RVEC_OUT(position), position, up_vec);
             rvec3_add(RVEC_OUT(position), position, forward_vec);
         }
 
@@ -447,6 +505,7 @@ int main(int argc, char** argv) {
 
                 thread->pp_thread = &sdl_threads[c];
                 thread->rect = rect;
+                thread->thread_index = c;
 
                 sdl_threads[c] = SDL_CreateThread(render_loop, "RTEverywhereRenderThread", thread);
             }
@@ -499,7 +558,7 @@ int main(int argc, char** argv) {
 #ifdef RTEVERYWHERE_IMGUI
         ImGui::Begin("Render");
 
-        if (ImGui::CollapsingHeader("Render")) {
+        if (ImGui::CollapsingHeader("Render Status")) {
             float frac = (float) pixels_rendered / (float) pixel_count;
             ImGui::Text("Rendered: %i out of %i pixels", pixels_rendered, pixel_count);
             ImGui::Text("Resolution: %i by %i", texture_rect.w, texture_rect.h);
@@ -513,8 +572,10 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (ImGui::CollapsingHeader("State")) {
+        if (ImGui::CollapsingHeader("Render Config")) {
             ImGui::Checkbox("MSAA?", reinterpret_cast<bool*>(&use_msaa));
+
+            ImGui::Checkbox("ACES Tonemap?", reinterpret_cast<bool*>(&tonemapping));
 
             ImGui::InputInt("Width", &manual_width);
             ImGui::InputInt("Height", &manual_height);
@@ -530,6 +591,20 @@ int main(int argc, char** argv) {
             if (ImGui::Button("Re-render")) {
                 should_render = 1;
             }
+        }
+
+        if (ImGui::CollapsingHeader("Scene")) {
+            ImGui::Indent();
+
+            if (ImGui::CollapsingHeader("Sun")) {
+                ImGui::Indent();
+
+                ImGui::DragFloat("Intensity", &scene.sun_light.intensity, 1.0F, 0.01F, 1000.0F);
+
+                ImGui::Unindent();
+            }
+
+            ImGui::Unindent();
         }
 
         ImGui::End();
