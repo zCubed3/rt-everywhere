@@ -18,13 +18,19 @@
 //#define RTE_SIMPLE_SCENE
 
 #ifndef RTE_SIMPLE_SCENE
+
 #define SPHERE_COUNT 64
 #define SPHERE_SIZE_MIN REAL(0.001)
 #define SPHERE_SIZE_MAX REAL(0.3)
+#define MIRROR_BOUNCES 5
+
 #else
+
 #define SPHERE_COUNT 16
 #define SPHERE_SIZE_MIN REAL(0.05)
 #define SPHERE_SIZE_MAX REAL(0.5)
+#define MIRROR_BOUNCES 2
+
 #endif
 
 #define SPHERE_Z_OFFSET REAL(2.0)
@@ -205,6 +211,19 @@ void tonemap_aces(rvec3_out_t color) {
 
 #ifdef RAYMARCHING
 
+#ifdef RTE_SIMPLE_SCENE
+
+const real_t EPSILON = REAL(0.001);
+const real_t NORMAL_EPSILON = REAL(0.001);
+const int MAX_STEPS = 64;
+
+const int MAX_SHADOW_STEPS = 32;
+const real_t SHADOW_SOFT = REAL(32.0);
+const real_t SHADOW_EPSILON = REAL(0.000001);
+const real_t SHADOW_BIAS = REAL(0.00001);
+
+#else
+
 const real_t EPSILON = REAL(0.001);
 const real_t NORMAL_EPSILON = REAL(0.001);
 
@@ -212,6 +231,8 @@ const int MAX_SHADOW_STEPS = 64;
 const real_t SHADOW_SOFT = REAL(64.0);
 const real_t SHADOW_EPSILON = REAL(0.000001);
 const real_t SHADOW_BIAS = REAL(0.00001);
+
+#endif
 
 inline real_t sdf_op_subtract(const real_t a, const real_t b) {
     return real_max(-a, b);
@@ -316,8 +337,6 @@ real_t trace_shadow(const rte_ray_t ray) {
 }
 
 int trace_scene(rte_fragment_t *p_fragment, const rte_ray_t ray, const rte_scene_t scene) {
-    const int MAX_STEPS = 128;
-
     rte_ray_t step = ray;
     int iter = 0;
 
@@ -690,8 +709,6 @@ void trace_pixel(rvec3_out_t dst_col, const trace_t trace) {
             rvec3_copy(RVEC_OUT(reflection), RVEC3_RGB(0, 0, 0));
 
 			if (base_frag.material_type == MATERIAL_TYPE_MIRROR) {
-                const int MIRROR_BOUNCES = 3;
-
                 rte_fragment_t prior_frag = base_frag;
                 rte_ray_t prior_ray = ray;
 
