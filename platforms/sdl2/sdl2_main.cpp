@@ -40,13 +40,16 @@ SDL_Rect preview_rect;
 SDL_Texture* texture = NULL;
 SDL_Texture* preview_texture = NULL;
 
-SDL_Thread* render_thread = NULL;
-SDL_Thread* render_thread2 = NULL;
 SDL_Texture* render_texture = NULL;
 SDL_Rect render_rect;
 uint8_t* render_pixels = NULL;
 rte_bool_e render_lock = RTE_FALSE;
 int render_semaphore = 0;
+
+SDL_Thread** sdl_threads = NULL;
+int sdl_concurrency;
+int actual_concurrency = 0;
+int render_concurrency = 0;
 
 camera_t camera;
 
@@ -55,10 +58,10 @@ typedef enum render_target {
     RENDER_TARGET_PREVIEW
 } render_target_e;
 
-typedef struct thread_args {
+typedef struct render_thread {
     SDL_Thread** pp_thread;
     SDL_Rect rect;
-} thread_args_t;
+} render_thread_t;
 
 void get_rgb(rvec3_out_t dst, const uint8_t* src, int x, int y, int width, int stride) {
     int index = (y * width * stride) + (x * stride);
@@ -155,7 +158,7 @@ int render(render_target_e target, SDL_Rect rect) {
 }
 
 int render_loop(void* data) {
-    thread_args_t* args = (thread_args_t*)data;
+    render_thread_t* args = (render_thread_t*)data;
 
 	int state = render(RENDER_TARGET_SCREEN, args->rect);
 
@@ -167,18 +170,28 @@ int render_loop(void* data) {
 }
 
 inline int threads_done() {
-    return render_thread == NULL && render_thread2 == NULL;
+    if (actual_concurrency == 0 || sdl_threads == NULL)
+        return 1;
+
+    if (sdl_threads != NULL) {
+        for (int t = 0; t < actual_concurrency; t++) {
+            if (sdl_threads[t] != NULL) {
+                return 0; // Not done
+            }
+        }
+    }
+
+    return 1;
 }
 
 inline void wait_for_threads() {
-    if (render_thread != NULL) {
-        int status;
-        SDL_WaitThread(render_thread, &status);
-    }
-
-    if (render_thread2 != NULL) {
-        int status;
-        SDL_WaitThread(render_thread2, &status);
+    if (sdl_threads != NULL) {
+        for (int t = 0; t < actual_concurrency; t++) {
+            if (sdl_threads[t] != NULL) {
+                int status;
+                SDL_WaitThread(sdl_threads[t], &status);
+            }
+        }
     }
 }
 
@@ -228,7 +241,8 @@ int main(int argc, char** argv) {
     preview_rect.w = PREVIEW_SIZE;
     preview_rect.h = PREVIEW_SIZE;
 
-    int concurrency = SDL_GetCPUCount();
+    sdl_concurrency = SDL_GetCPUCount();
+    actual_concurrency = sdl_concurrency;
 
     // Create a temporary camera to get the default values
     if (1) {
@@ -413,21 +427,29 @@ int main(int argc, char** argv) {
         if (should_render && threads_done()) {
             begin_render(RENDER_TARGET_SCREEN);
 
-            render_semaphore = 2;
+            render_semaphore = actual_concurrency;
 
-            thread_args_t* thread0args = (thread_args_t*)malloc(sizeof(thread_args_t));
-            thread_args_t* thread1args = (thread_args_t*)malloc(sizeof(thread_args_t));
+            if (sdl_threads == NULL) {
+                sdl_threads = (SDL_Thread**) calloc(sizeof(SDL_Thread*), actual_concurrency);
+            }
 
-            thread0args->pp_thread = &render_thread;
-            thread0args->rect = render_rect;
-            thread0args->rect.w /= 2;
+            int slice = render_rect.w / actual_concurrency;
 
-            thread1args->pp_thread = &render_thread2;
-            thread1args->rect = thread0args->rect;
-            thread1args->rect.x += thread0args->rect.w;
+            SDL_Rect rect = render_rect;
+            rect.w = slice;
 
-            render_thread = SDL_CreateThread(render_loop, "RTEverywhereRenderLoop0", thread0args);
-            render_thread2 = SDL_CreateThread(render_loop, "RTEverywhereRenderLoop1", thread1args);
+            render_concurrency = actual_concurrency;
+
+            for (int c = 0; c < actual_concurrency; c++) {
+                render_thread_t* thread = (render_thread_t*) malloc(sizeof(render_thread_t));
+
+                rect.x = c * slice;
+
+                thread->pp_thread = &sdl_threads[c];
+                thread->rect = rect;
+
+                sdl_threads[c] = SDL_CreateThread(render_loop, "RTEverywhereRenderThread", thread);
+            }
 
             should_render = 0;
         }
@@ -487,6 +509,7 @@ int main(int argc, char** argv) {
             if (time_render_start <= time_render_end) {
                 uint32_t elapsed = time_render_end - time_render_start;
                 ImGui::Text("Last render took %ums (%fs)", elapsed, (float)elapsed / 1000.0F);
+                ImGui::Text("Last render ran on %i threads", render_concurrency);
             }
         }
 
@@ -497,6 +520,8 @@ int main(int argc, char** argv) {
             ImGui::InputInt("Height", &manual_height);
 
             ImGui::Checkbox("Manual Size?", (bool*)&manual_size);
+
+            ImGui::DragInt("Concurrency (Threads)", &actual_concurrency, 1.0F, 1, actual_concurrency);
 
             if (ImGui::Button("Recreate image")) {
                 recreate_texture = 1;
@@ -531,10 +556,7 @@ int main(int argc, char** argv) {
         SDL_RenderPresent(renderer);
     }
 
-    if (render_thread != NULL) {
-        int state;
-        SDL_WaitThread(render_thread, &state);
-    }
+    wait_for_threads();
 
     return 0;
 }
