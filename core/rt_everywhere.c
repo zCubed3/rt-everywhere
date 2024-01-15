@@ -22,14 +22,12 @@
 #define SPHERE_COUNT 64
 #define SPHERE_SIZE_MIN REAL(0.001)
 #define SPHERE_SIZE_MAX REAL(0.3)
-#define MIRROR_BOUNCES 5
 
 #else
 
 #define SPHERE_COUNT 16
 #define SPHERE_SIZE_MIN REAL(0.05)
 #define SPHERE_SIZE_MAX REAL(0.5)
-#define MIRROR_BOUNCES 2
 
 #endif
 
@@ -167,6 +165,8 @@ rte_scene_t rte_default_scene() {
     rvec3_normalize(RVEC_OUT(scene.sun_light.forward));
 
     scene.sun_light.intensity = 1;
+
+    scene.mirror_bounces = 3;
 
     return scene;
 }
@@ -716,7 +716,7 @@ void trace_pixel(rvec3_out_t dst_col, const trace_t trace) {
 
                 rvec3_copy(&energy, base_frag.albedo);
 
-                for (int b = 0; b < MIRROR_BOUNCES; b++) {
+                for (int b = 0; b < trace.scene.mirror_bounces; b++) {
                     rvec3_t bias;
                     rvec3_copy(RVEC_OUT(bias), prior_frag.normal);
                     rvec3_mul_scalar(RVEC_OUT(bias), bias, REAL(0.001));

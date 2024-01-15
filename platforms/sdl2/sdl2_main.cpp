@@ -52,6 +52,8 @@ int sdl_concurrency;
 int actual_concurrency = 0;
 int render_concurrency = 0;
 
+bool credits_open = true;
+
 rte_camera_t camera;
 rte_scene_t scene;
 rte_tonemap_e tonemapping = RTE_TONEMAP_NONE;
@@ -252,7 +254,7 @@ int main(int argc, char** argv) {
     preview_rect.h = PREVIEW_SIZE_Y;
 
     sdl_concurrency = SDL_GetCPUCount();
-    actual_concurrency = sdl_concurrency;
+    actual_concurrency = sdl_concurrency / 2;
 
     // Create a temporary camera to get the default values
     if (1) {
@@ -496,8 +498,6 @@ int main(int argc, char** argv) {
             SDL_Rect rect = render_rect;
             rect.w = slice;
 
-            render_concurrency = actual_concurrency;
-
             for (int c = 0; c < actual_concurrency; c++) {
                 render_thread_t* thread = (render_thread_t*) malloc(sizeof(render_thread_t));
 
@@ -596,6 +596,10 @@ int main(int argc, char** argv) {
         if (ImGui::CollapsingHeader("Scene")) {
             ImGui::Indent();
 
+            if (ImGui::DragInt("Mirror Bounces", &scene.mirror_bounces, 1.0F, 1, 10)) {
+                should_render = 1;
+            }
+
             if (ImGui::CollapsingHeader("Sun")) {
                 ImGui::Indent();
 
@@ -606,6 +610,22 @@ int main(int argc, char** argv) {
 
             ImGui::Unindent();
         }
+
+        ImGui::End();
+
+        ImGui::Begin("Software Credit", &credits_open);
+
+        ImGui::BulletText("Dear ImGui, by Omar Cornut");
+
+        ImGui::Indent();
+        ImGui::BulletText("Thank you Omar and contributors for this amazing and easy to use UI library!");
+        ImGui::Unindent();
+
+        ImGui::BulletText("SDL2, by Sam Lantinga");
+
+        ImGui::Indent();
+        ImGui::BulletText("Thank you Sam Lantinga and contributors for SDL, without it, I'd have to write the windowing interfaces myself :)");
+        ImGui::Unindent();
 
         ImGui::End();
 #endif

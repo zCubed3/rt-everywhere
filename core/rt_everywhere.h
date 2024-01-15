@@ -86,6 +86,7 @@ typedef struct rte_light {
 
 typedef struct rte_scene {
     rte_light_t sun_light;
+    int mirror_bounces;
 } rte_scene_t;
 
 typedef struct trace {

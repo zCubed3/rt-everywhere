@@ -14,3 +14,8 @@
 | Nintendo 3DS    | Complete (Native)          |
 | Nintendo Wii    | TODO                       |
 | PS Vita         | TODO                       |
+
+### Credits
+
+* [ocornut/DearImGui](https://github.com/ocornut/imgui) - UI library for SDL frontend
+* [libsdl-org/SDL](https://github.com/libsdl-org/SDL) - Powers SDL "harness" (aka frontend)
