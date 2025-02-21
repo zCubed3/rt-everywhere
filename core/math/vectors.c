@@ -10,8 +10,6 @@
 #include <string.h>
 #endif
 
-#define RTE_NO_STDLIB
-
 //
 // rvec3_t
 //
@@ -30,9 +28,14 @@ inline void rvec3_copy(rvec3_out_t dst, const rvec3_t src) {
 }
 
 inline void rvec3_copy_scalar(rvec3_out_t dst, real_t s) {
-	RVEC_OUT_DEREF(dst)[0] = s;
-	RVEC_OUT_DEREF(dst)[1] = s;
-	RVEC_OUT_DEREF(dst)[2] = s;
+#if !defined(RTE_NO_STDLIB) || 1
+    for (int d = 0; d < 3; d++) {
+        dst[d] = s;
+    }
+#else
+    rvec3_t src = { s, s, s };
+    memcpy(dst, src, sizeof(rvec3_t));
+#endif
 }
 
 inline void rvec3_copy_rvec4(rvec3_out_t dst, const rvec4_t src) {
@@ -45,130 +48,169 @@ inline void rvec3_copy_rvec4(rvec3_out_t dst, const rvec4_t src) {
 #endif
 }
 
-real_t rvec3_length_sqr(const rvec3_t vec) {
+inline real_t rvec3_length_sqr(const rvec3_t vec) {
 	return rvec3_dot(vec, vec);
 }
 
-real_t rvec3_length(const rvec3_t vec) {
+inline real_t rvec3_length(const rvec3_t vec) {
 	return real_sqrt(rvec3_dot(vec, vec));
 }
 
-real_t rvec3_dot(const rvec3_t a, const rvec3_t b) {
-	return
-	a[0] * b[0] +
-	a[1] * b[1] +
-	a[2] * b[2];
+inline real_t rvec3_dot(const rvec3_t a, const rvec3_t b) {
+    real_t accum = REAL(0.0);
+
+    for (int d = 0; d < 3; d++) {
+        accum += a[d] * b[d];
+    }
+
+    return accum;
 }
 
-void rvec3_normalize(rvec3_out_t dst) {
-	real_t len = rvec3_length(RVEC_OUT_DEREF(dst));
+inline void rvec3_normalize(rvec3_out_t dst) {
+	real_t len = REAL(1.0) / rvec3_length(RVEC_OUT_DEREF(dst));
 
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] /= len;
-	dst[1] /= len;
-	dst[2] /= len;
+    for (int d = 0; d < 3; d++) {
+        dst[d] *= len;
+    }
 #else
-	RVEC_OUT_DEREF(dst) /= len;
+	RVEC_OUT_DEREF(dst) *= len;
 #endif
 }
 
-void rvec3_saturate(rvec3_out_t dst) {
-	RVEC_OUT_DEREF(dst)[0] = real_saturate(RVEC_OUT_DEREF(dst)[0]);
-	RVEC_OUT_DEREF(dst)[1] = real_saturate(RVEC_OUT_DEREF(dst)[1]);
-	RVEC_OUT_DEREF(dst)[2] = real_saturate(RVEC_OUT_DEREF(dst)[2]);
+inline void rvec3_saturate(rvec3_out_t dst) {
+    for (int d = 0; d < 3; d++) {
+        RVEC_OUT_DEREF(dst)[d] = real_saturate(RVEC_OUT_DEREF(dst)[d]);
+    }
 }
 
-void rvec3_cross(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
+inline void rvec3_cross(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
 	RVEC_OUT_DEREF(dst)[0] = a[1] * b[2] - a[2] * b[1];
 	RVEC_OUT_DEREF(dst)[1] = a[2] * b[0] - a[0] * b[2];
 	RVEC_OUT_DEREF(dst)[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-void rvec3_reflect(rvec3_out_t dst, const rvec3_t incoming, const rvec3_t normal) {
+inline void rvec3_reflect(rvec3_out_t dst, const rvec3_t incoming, const rvec3_t normal) {
 	rvec3_t fac;
-	rvec3_mul_scalar(RVEC_OUT(fac), normal, rvec3_dot(incoming, normal) * REAL(2.0));
 
+	rvec3_mul_scalar(RVEC_OUT(fac), normal, rvec3_dot(incoming, normal) * REAL(2.0));
 	rvec3_sub(dst, incoming, fac);
 }
 
-void rvec3_add(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
+inline void rvec3_add(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] = a[0] + b[0];
-	dst[1] = a[1] + b[1];
-	dst[2] = a[2] + b[2];
+    for (int d = 0; d < 3; d++) {
+        dst[d] = a[d] + b[d];
+    }
 #else
 	RVEC_OUT_DEREF(dst) = a + b;
 #endif
 }
 
-void rvec3_sub(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
+inline void rvec3_sub(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] = a[0] - b[0];
-	dst[1] = a[1] - b[1];
-	dst[2] = a[2] - b[2];
+    for (int d = 0; d < 3; d++) {
+        dst[d] = a[d] - b[d];
+    }
 #else
 	RVEC_OUT_DEREF(dst) = a - b;
 #endif
 }
 
-void rvec3_mul(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
+inline void rvec3_mul(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] = a[0] * b[0];
-	dst[1] = a[1] * b[1];
-	dst[2] = a[2] * b[2];
+    for (int d = 0; d < 3; d++) {
+        dst[d] = a[d] * b[d];
+    }
 #else
 	RVEC_OUT_DEREF(dst) = a * b;
 #endif
 }
 
-void rvec3_div(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
+inline void rvec3_div(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] = a[0] / b[0];
-	dst[1] = a[1] / b[1];
-	dst[2] = a[2] / b[2];
+    for (int d = 0; d < 3; d++) {
+        dst[d] = a[d] / b[d];
+    }
 #else
 	RVEC_OUT_DEREF(dst) = a / b;
 #endif
 }
 
-void rvec3_add_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
+inline void rvec3_add_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] = a[0] + s;
-	dst[1] = a[1] + s;
-	dst[2] = a[2] + s;
+    for (int d = 0; d < 3; d++) {
+        dst[d] = a[d] + s;
+    }
 #else
 	RVEC_OUT_DEREF(dst) = a + s;
 #endif
 }
 
-void rvec3_sub_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
+inline void rvec3_sub_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] = a[0] - s;
-	dst[1] = a[1] - s;
-	dst[2] = a[2] - s;
+    for (int d = 0; d < 3; d++) {
+        dst[d] = a[d] - s;
+    }
 #else
 	RVEC_OUT_DEREF(dst) = a - s;
 #endif
 }
 
-void rvec3_mul_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
+inline void rvec3_mul_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] = a[0] * s;
-	dst[1] = a[1] * s;
-	dst[2] = a[2] * s;
+    for (int d = 0; d < 3; d++) {
+        dst[d] = a[d] * s;
+    }
 #else
 	RVEC_OUT_DEREF(dst) = a * s;
 #endif
 }
 
-void rvec3_div_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
+inline void rvec3_div_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
 #ifndef VECTORS_ARE_VECTORIZED
-	dst[0] = a[0] / s;
-	dst[1] = a[1] / s;
-	dst[2] = a[2] / s;
+    real_t inv = 1.0 / s;
+
+    for (int d = 0; d < 3; d++) {
+        dst[d] = a[d] * inv;
+    }
 #else
 	RVEC_OUT_DEREF(dst) = a / s;
 #endif
+}
+
+inline void rvec3_rcp(rvec3_out_t dst, const rvec3_t a) {
+#ifndef VECTORS_ARE_VECTORIZED
+    dst[0] = REAL(1.0) / a[0];
+    dst[1] = REAL(1.0) / a[1];
+    dst[2] = REAL(1.0) / a[2];
+#else
+    RVEC_OUT_DEREF(dst) = REAL(1.0) / a;
+#endif
+}
+
+inline void rvec3_min_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
+    RVEC_OUT_DEREF(dst)[0] = real_min(a[0], s);
+    RVEC_OUT_DEREF(dst)[1] = real_min(a[1], s);
+    RVEC_OUT_DEREF(dst)[2] = real_min(a[2], s);
+}
+
+inline void rvec3_max_scalar(rvec3_out_t dst, const rvec3_t a, real_t s) {
+    RVEC_OUT_DEREF(dst)[0] = real_max(a[0], s);
+    RVEC_OUT_DEREF(dst)[1] = real_max(a[1], s);
+    RVEC_OUT_DEREF(dst)[2] = real_max(a[2], s);
+}
+
+inline void rvec3_min(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
+    RVEC_OUT_DEREF(dst)[0] = real_min(a[0], b[0]);
+    RVEC_OUT_DEREF(dst)[1] = real_min(a[1], b[1]);
+    RVEC_OUT_DEREF(dst)[2] = real_min(a[2], b[2]);
+}
+
+inline void rvec3_max(rvec3_out_t dst, const rvec3_t a, const rvec3_t b) {
+    RVEC_OUT_DEREF(dst)[0] = real_max(a[0], b[0]);
+    RVEC_OUT_DEREF(dst)[1] = real_max(a[1], b[1]);
+    RVEC_OUT_DEREF(dst)[2] = real_max(a[2], b[2]);
 }
 
 //

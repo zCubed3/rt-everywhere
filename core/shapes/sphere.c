@@ -2,12 +2,25 @@
 
 #include "sphere.h"
 
+#include "aabb.h"
+
 #include <math.h>
 
 int sphere_ray_intersect(sphere_t sphere, rte_ray_t ray, sphere_intersect_t* intersect) {
-	rvec3_copy(RVEC_OUT(intersect->point), (rvec3_t){0, 0, 0});
-	rvec3_copy(RVEC_OUT(intersect->normal), (rvec3_t){0, 0, 0});
-	intersect->distance = 0;
+    // Early exit for sphere
+    /*
+    rte_aabb_t aabb;
+    rvec3_t shift;
+
+    rvec3_copy_scalar(RVEC_OUT(shift), sphere.radius);
+
+    rvec3_sub(RVEC_OUT(aabb.min), sphere.origin, shift);
+    rvec3_add(RVEC_OUT(aabb.max), sphere.origin, shift);
+
+    if (!aabb_ray_intersect(aabb, ray, 0, 100)) {
+        return 0;
+    }
+    */
 
 	// Ported to C from http://three-eyed-games.com/2018/05/03/gpu-ray-tracing-in-unity-part-1/
 	rvec3_t d;
@@ -19,10 +32,11 @@ int sphere_ray_intersect(sphere_t sphere, rte_ray_t ray, sphere_intersect_t* int
 	real_t r2 = sphere.radius * sphere.radius;
 	real_t p2sqr = p1sqr - rvec3_dot(d, d) + r2;
 
-	if (p2sqr < 0)
-		return 0;
+	if (p2sqr < 0) {
+        return 0;
+    }
 
-	real_t p2 = (real_t)sqrt(p2sqr);
+	real_t p2 = (real_t)sqrtf(p2sqr);
 	real_t t = p1 - p2 > 0 ? p1 - p2 : p1 + p2;
 
 	if (t > 0) {
@@ -35,13 +49,14 @@ int sphere_ray_intersect(sphere_t sphere, rte_ray_t ray, sphere_intersect_t* int
 		rvec3_normalize(RVEC_OUT(intersect->normal));
 
 		// Then the travel
-		//rvec3_t travel;
-		//rvec3_sub(travel, intersect->point, ray.origin);
-		//intersect->distance = rvec3_length(travel);
         intersect->distance = t;
 
 		return 1;
-	}
+	} else {
+        rvec3_copy(RVEC_OUT(intersect->point), (rvec3_t){0, 0, 0});
+        rvec3_copy(RVEC_OUT(intersect->normal), (rvec3_t){0, 0, 0});
+        intersect->distance = 0;
+    }
 
 	return 0;
 }

@@ -19,6 +19,19 @@ if (SDL2_IMGUI_SUPPORT)
     )
 endif()
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
+    # https://stackoverflow.com/questions/61590519/how-to-use-emscripten-ports-sdl2-and-freetype-with-cmake
+    set(USE_FLAGS "-sUSE_SDL=2 -sUSE_FREETYPE=1 -sWASM=1 -fno-rtti -fno-exceptions --profiling")
+
+    if (NOT ${CMAKE_BUILD_TYPE} MATCHES "Debug")
+        set(USE_FLAGS "${USE_FLAGS} -O3 -flto=full")
+    endif()
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${USE_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${USE_FLAGS}")
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+endif()
+
 add_subdirectory(dependencies/SDL EXCLUDE_FROM_ALL)
 
 add_executable(SDL2Harness ${RT_HARNESS_SDL2_SOURCES})

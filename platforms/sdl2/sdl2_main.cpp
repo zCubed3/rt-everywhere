@@ -7,6 +7,10 @@
 
 #include <SDL.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #include <rt_everywhere.h>
 
 extern "C" {
@@ -34,6 +38,10 @@ int use_msaa = 0;
 
 rvec3_t position;
 rvec3_t rotation;
+
+SDL_Window* window;
+SDL_Renderer* renderer;
+bool run = true;
 
 SDL_Rect texture_rect;
 SDL_Rect preview_rect;
@@ -72,9 +80,9 @@ typedef struct render_thread {
 void get_rgb(rvec3_out_t dst, const uint8_t* src, int x, int y, int width, int stride) {
     int index = (y * width * stride) + (x * stride);
 
-    dst[0] = src[index] / 255.0;
-    dst[1] = src[index + 1] / 255.0;
-    dst[2] = src[index + 2] / 255.0;
+    dst[0] = src[index] / REAL(255.0);
+    dst[1] = src[index + 1] / REAL(255.0);
+    dst[2] = src[index + 2] / REAL(255.0);
 }
 
 void begin_render(render_target_e target) {
@@ -122,8 +130,6 @@ void end_render() {
 }
 
 int render(render_target_e target, SDL_Rect rect) {
-	int pitch;
-
 	if (render_texture == NULL) {
 		printf("Error: Render texture was NULL!\n");
 		return 1;
@@ -158,9 +164,9 @@ int render(render_target_e target, SDL_Rect rect) {
 
 			trace_pixel(RVEC_OUT(color), trace);
 
-			render_pixels[index + 2] = color[0] * 255;
-			render_pixels[index + 1] = color[1] * 255;
-			render_pixels[index + 0] = color[2] * 255;
+			render_pixels[index + 2] = (uint8_t)(color[0] * 255);
+			render_pixels[index + 1] = (uint8_t)(color[1] * 255);
+			render_pixels[index + 0] = (uint8_t)(color[2] * 255);
 
 			pixels_rendered++;
 		}
@@ -207,10 +213,392 @@ inline void wait_for_threads() {
     }
 }
 
+SDL_Event event;
+
+int lock_cursor = 0;
+int recreate_texture = 1;
+
+uint32_t last;
+uint32_t now = SDL_GetTicks();
+
+int manual_width = 320;
+int manual_height = 240;
+int manual_size = 0;
+
+int w_down = 0;
+int s_down = 0;
+int a_down = 0;
+int d_down = 0;
+int q_down = 0;
+int e_down = 0;
+
+void program_loop() {
+    int draw_preview = 0;
+
+    //https://gamedev.stackexchange.com/questions/110825/how-to-calculate-delta-time-with-sdl
+    last = now;
+    now = SDL_GetPerformanceCounter();
+    float delta_time = (float) (now - last) / (float) SDL_GetPerformanceFrequency();
+
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            run = 0;
+            break;
+        }
+
+        if (event.type == SDL_WINDOWEVENT) {
+            if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                recreate_texture = 1;
+            }
+        }
+
+        if (event.type == SDL_KEYDOWN) {
+            if (event.key.keysym.scancode == SDL_SCANCODE_W) {
+                w_down = 1;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_S) {
+                s_down = 1;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_A) {
+                a_down = 1;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_D) {
+                d_down = 1;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_Q) {
+                q_down = 1;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_E) {
+                e_down = 1;
+            }
+        }
+
+        if (event.type == SDL_KEYUP) {
+            if (event.key.keysym.scancode == SDL_SCANCODE_W) {
+                w_down = 0;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_S) {
+                s_down = 0;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_A) {
+                a_down = 0;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_D) {
+                d_down = 0;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_Q) {
+                q_down = 0;
+            }
+
+            if (event.key.keysym.scancode == SDL_SCANCODE_E) {
+                e_down = 0;
+            }
+        }
+
+        if (event.type == SDL_MOUSEMOTION) {
+            if (lock_cursor) {
+                rotation[1] += event.motion.xrel / 10.0F;
+                rotation[0] += event.motion.yrel / 10.0F;
+            }
+        }
+
+        if (event.type == SDL_MOUSEBUTTONDOWN) {
+            if (event.button.button == SDL_BUTTON_RIGHT) {
+                lock_cursor = !lock_cursor;
+                SDL_SetRelativeMouseMode(static_cast<SDL_bool>(lock_cursor));
+
+                if (lock_cursor == 0) {
+                    should_render = 1;
+                }
+            }
+        }
+
+#ifdef RTEVERYWHERE_IMGUI
+        ImGui_ImplSDL2_ProcessEvent(&event);
+#endif
+    }
+
+    if (lock_cursor) {
+        draw_preview = 1;
+    }
+
+    if ((w_down || s_down || a_down || d_down || q_down || e_down) && lock_cursor) {
+        real_t move_x = 0;
+        real_t move_y = 0;
+        real_t move_z = 0;
+
+        if (w_down) {
+            move_z -= 1;
+        }
+
+        if (s_down) {
+            move_z += 1;
+        }
+
+
+        if (a_down) {
+            move_x -= 1;
+        }
+
+        if (d_down) {
+            move_x += 1;
+        }
+
+
+        if (q_down) {
+            move_y -= 1;
+        }
+
+        if (e_down) {
+            move_y += 1;
+        }
+
+        SDL_Keymod mod = SDL_GetModState();
+
+        real_t gear = REAL(1.0);
+
+        if (mod & (KMOD_LSHIFT | KMOD_RSHIFT))
+            gear = REAL(4.0);
+
+        move_x *= delta_time * gear;
+        move_y *= delta_time * gear;
+        move_z *= delta_time * gear;
+
+        // Calculate the right and forward directions of the current rotation
+        rmat4_t rot_matrix;
+        rmat4_t rot_matrix_t;
+
+        rmat4_rotate(rot_matrix, rotation);
+        rmat4_transpose(rot_matrix_t, rot_matrix);
+        rmat4_copy(rot_matrix, rot_matrix_t);
+
+        rvec4_t right = {1, 0, 0, 0};
+        rvec4_t up = {0, 1, 0, 0};
+        rvec4_t forward = {0, 0, 1, 0};
+
+        rvec4_t rel_right;
+        rvec4_t rel_up;
+        rvec4_t rel_forward;
+
+        rmat4_mul_rvec4(RVEC_OUT(rel_right), rot_matrix, right);
+        rmat4_mul_rvec4(RVEC_OUT(rel_up), rot_matrix, up);
+        rmat4_mul_rvec4(RVEC_OUT(rel_forward), rot_matrix, forward);
+
+        rvec3_t right_vec;
+        rvec3_t up_vec;
+        rvec3_t forward_vec;
+
+        rvec3_copy_rvec4(RVEC_OUT(right_vec), rel_right);
+        rvec3_normalize(RVEC_OUT(right_vec));
+        rvec3_mul_scalar(RVEC_OUT(right_vec), right_vec, move_x);
+
+        rvec3_copy_rvec4(RVEC_OUT(up_vec), rel_up);
+        rvec3_normalize(RVEC_OUT(up_vec));
+        rvec3_mul_scalar(RVEC_OUT(up_vec), up_vec, move_y);
+
+        rvec3_copy_rvec4(RVEC_OUT(forward_vec), rel_forward);
+        rvec3_normalize(RVEC_OUT(forward_vec));
+        rvec3_mul_scalar(RVEC_OUT(forward_vec), forward_vec, move_z);
+
+        rvec3_add(RVEC_OUT(position), position, right_vec);
+        rvec3_add(RVEC_OUT(position), position, up_vec);
+        rvec3_add(RVEC_OUT(position), position, forward_vec);
+    }
+
+#ifndef __EMSCRIPTEN__
+    if (draw_preview && !should_render && threads_done()) {
+        begin_render(RENDER_TARGET_PREVIEW);
+        render(RENDER_TARGET_PREVIEW, render_rect);
+        end_render();
+    }
+
+    if (should_render && threads_done()) {
+        begin_render(RENDER_TARGET_SCREEN);
+
+        render_semaphore = actual_concurrency;
+
+        if (sdl_threads == NULL) {
+            sdl_threads = (SDL_Thread**) calloc(sizeof(SDL_Thread*), actual_concurrency);
+        }
+
+        int slice = render_rect.w / actual_concurrency;
+
+        SDL_Rect rect = render_rect;
+        rect.w = slice;
+
+        for (int c = 0; c < actual_concurrency; c++) {
+            render_thread_t* thread = (render_thread_t*) malloc(sizeof(render_thread_t));
+
+            rect.x = c * slice;
+
+            thread->pp_thread = &sdl_threads[c];
+            thread->rect = rect;
+            thread->thread_index = c;
+
+            sdl_threads[c] = SDL_CreateThread(render_loop, "RTEverywhereRenderThread", thread);
+        }
+
+        should_render = 0;
+    }
+
+    if (render_semaphore == 0 && threads_done() && render_lock) {
+        end_render();
+    }
+#else
+    begin_render(RENDER_TARGET_PREVIEW);
+    render(RENDER_TARGET_PREVIEW, render_rect);
+    end_render();
+
+    draw_preview = 1;
+#endif
+
+    if (recreate_texture && render_semaphore == 0) {
+        wait_for_threads();
+
+        SDL_DestroyTexture(texture);
+        texture = NULL;
+
+        int width;
+        int height;
+        SDL_GetWindowSizeInPixels(window, &width, &height);
+
+        if (manual_size) {
+            width = manual_width;
+            height = manual_height;
+        }
+
+        texture = SDL_CreateTexture(
+            renderer,
+            SDL_PIXELFORMAT_ARGB8888,
+            SDL_TEXTUREACCESS_STREAMING,
+            width,
+            height
+        );
+
+        texture_rect.x = 0;
+        texture_rect.y = 0;
+        texture_rect.w = width;
+        texture_rect.h = height;
+
+        recreate_texture = 0;
+        should_render = 1;
+    }
+
+#ifdef RTEVERYWHERE_IMGUI
+    ImGui_ImplSDL2_NewFrame(window);
+    ImGui_ImplSDLRenderer2_NewFrame();
+    ImGui::NewFrame();
+#endif
+
+#ifdef RTEVERYWHERE_IMGUI
+    ImGui::Begin("Render");
+
+    if (ImGui::CollapsingHeader("Render Status")) {
+        float frac = (float) pixels_rendered / (float) pixel_count;
+        ImGui::Text("Rendered: %i out of %i pixels", pixels_rendered, pixel_count);
+        ImGui::Text("Resolution: %i by %i", texture_rect.w, texture_rect.h);
+
+        ImGui::ProgressBar(frac);
+
+        if (time_render_start <= time_render_end) {
+            uint32_t elapsed = time_render_end - time_render_start;
+            ImGui::Text("Last render took %ums (%fs)", elapsed, (float)elapsed / 1000.0F);
+            ImGui::Text("Last render ran on %i threads", render_concurrency);
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Render Config")) {
+        ImGui::Checkbox("MSAA?", reinterpret_cast<bool*>(&use_msaa));
+
+        ImGui::Checkbox("ACES Tonemap?", reinterpret_cast<bool*>(&tonemapping));
+
+        ImGui::InputInt("Width", &manual_width);
+        ImGui::InputInt("Height", &manual_height);
+
+        ImGui::Checkbox("Manual Size?", (bool*)&manual_size);
+
+        ImGui::DragInt("Concurrency (Threads)", &actual_concurrency, 1.0F, 1, sdl_concurrency);
+
+        if (ImGui::Button("Recreate image")) {
+            recreate_texture = 1;
+        }
+
+        if (ImGui::Button("Re-render")) {
+            should_render = 1;
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Scene")) {
+        ImGui::Indent();
+
+        if (ImGui::DragInt("Mirror Bounces", &scene.mirror_bounces, 1.0F, 1, 10)) {
+            should_render = 1;
+        }
+
+        if (ImGui::CollapsingHeader("Sun")) {
+            ImGui::Indent();
+
+            ImGui::DragFloat("Intensity", &scene.sun_light.intensity, 1.0F, 0.01F, 1000.0F);
+
+            ImGui::Unindent();
+        }
+
+        ImGui::Unindent();
+    }
+
+    ImGui::End();
+
+    ImGui::Begin("Software Credit", &credits_open);
+
+    ImGui::BulletText("Dear ImGui, by Omar Cornut");
+
+    ImGui::Indent();
+    ImGui::BulletText("Thank you Omar and contributors for this amazing and easy to use UI library!");
+    ImGui::Unindent();
+
+    ImGui::BulletText("SDL2, by Sam Lantinga");
+
+    ImGui::Indent();
+    ImGui::BulletText("Thank you Sam Lantinga and contributors for SDL, without it, I'd have to write the windowing interfaces myself :)");
+    ImGui::Unindent();
+
+    ImGui::End();
+#endif
+
+    SDL_Texture* target_texture = texture;
+    SDL_Rect target_rect = texture_rect;
+
+    if (draw_preview) {
+        target_texture = preview_texture;
+        target_rect = preview_rect;
+    }
+
+    SDL_RenderClear(renderer);
+
+    //SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
+    SDL_RenderCopy(renderer, target_texture, NULL, NULL);
+
+#ifdef RTEVERYWHERE_IMGUI
+    ImGui::Render();
+    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+#endif
+
+    SDL_RenderPresent(renderer);
+}
+
 int main(int argc, char** argv) {
     SDL_Init(SDL_INIT_EVERYTHING);
 
-    SDL_Window* window = SDL_CreateWindow(
+    window = SDL_CreateWindow(
         "RT Everywhere (SDL2)",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
@@ -232,7 +620,7 @@ int main(int argc, char** argv) {
     sdl_renderer_flags |= SDL_RENDERER_ACCELERATED;
 #endif
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, sdl_renderer_flags);
+    renderer = SDL_CreateRenderer(window, -1, sdl_renderer_flags);
 
     if (renderer == NULL) {
         printf("FATAL: SDL Renderer was NULL!\n");
@@ -253,8 +641,13 @@ int main(int argc, char** argv) {
     preview_rect.w = PREVIEW_SIZE_X;
     preview_rect.h = PREVIEW_SIZE_Y;
 
+#ifdef __EMSCRIPTEN__ || 1
+    sdl_concurrency = 1;
+    actual_concurrency = 1;
+#else
     sdl_concurrency = SDL_GetCPUCount();
     actual_concurrency = sdl_concurrency / 2;
+#endif
 
     // Create a temporary camera to get the default values
     if (1) {
@@ -276,382 +669,15 @@ int main(int argc, char** argv) {
     ImGui_ImplSDLRenderer2_Init(renderer);
 #endif
 
-    SDL_Event event;
-    int run = 1;
-
-    int lock_cursor = 0;
-    int recreate_texture = 1;
-
-    uint32_t last;
-    uint32_t now = SDL_GetTicks();
-
-    int manual_width = 320;
-    int manual_height = 240;
-    int manual_size = 0;
-
-    int w_down = 0;
-    int s_down = 0;
-    int a_down = 0;
-    int d_down = 0;
-    int q_down = 0;
-    int e_down = 0;
-
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(program_loop, 0, false);
+#else
     while (run) {
-        int draw_preview = 0;
-
-        //https://gamedev.stackexchange.com/questions/110825/how-to-calculate-delta-time-with-sdl
-        last = now;
-        now = SDL_GetPerformanceCounter();
-        float delta_time = (float) (now - last) / (float) SDL_GetPerformanceFrequency();
-
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                run = 0;
-                break;
-            }
-
-            if (event.type == SDL_WINDOWEVENT) {
-                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                    recreate_texture = 1;
-                }
-            }
-
-            if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.scancode == SDL_SCANCODE_W) {
-                    w_down = 1;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_S) {
-                    s_down = 1;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_A) {
-                    a_down = 1;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_D) {
-                    d_down = 1;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_Q) {
-                    q_down = 1;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_E) {
-                    e_down = 1;
-                }
-            }
-
-            if (event.type == SDL_KEYUP) {
-                if (event.key.keysym.scancode == SDL_SCANCODE_W) {
-                    w_down = 0;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_S) {
-                    s_down = 0;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_A) {
-                    a_down = 0;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_D) {
-                    d_down = 0;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_Q) {
-                    q_down = 0;
-                }
-
-                if (event.key.keysym.scancode == SDL_SCANCODE_E) {
-                    e_down = 0;
-                }
-            }
-
-            if (event.type == SDL_MOUSEMOTION) {
-                if (lock_cursor) {
-                    rotation[1] += event.motion.xrel / 10.0F;
-                    rotation[0] += event.motion.yrel / 10.0F;
-                }
-            }
-
-            if (event.type == SDL_MOUSEBUTTONDOWN) {
-                if (event.button.button == SDL_BUTTON_RIGHT) {
-                    lock_cursor = !lock_cursor;
-                    SDL_SetRelativeMouseMode(static_cast<SDL_bool>(lock_cursor));
-
-                    if (lock_cursor == 0) {
-                        should_render = 1;
-                    }
-                }
-            }
-
-#ifdef RTEVERYWHERE_IMGUI
-            ImGui_ImplSDL2_ProcessEvent(&event);
-#endif
-        }
-
-        if (lock_cursor) {
-            draw_preview = 1;
-        }
-
-        if ((w_down || s_down || a_down || d_down || q_down || e_down) && lock_cursor) {
-            real_t move_x = 0;
-            real_t move_y = 0;
-            real_t move_z = 0;
-
-            if (w_down) {
-                move_z -= 1;
-            }
-
-            if (s_down) {
-                move_z += 1;
-            }
-
-
-            if (a_down) {
-                move_x -= 1;
-            }
-
-            if (d_down) {
-                move_x += 1;
-            }
-
-
-            if (q_down) {
-                move_y -= 1;
-            }
-
-            if (e_down) {
-                move_y += 1;
-            }
-
-            SDL_Keymod mod = SDL_GetModState();
-
-            real_t gear = REAL(1.0);
-
-            if (mod & (KMOD_LSHIFT | KMOD_RSHIFT))
-                gear = REAL(4.0);
-
-            move_x *= delta_time * gear;
-            move_y *= delta_time * gear;
-            move_z *= delta_time * gear;
-
-            // Calculate the right and forward directions of the current rotation
-            rmat4_t rot_matrix;
-            rmat4_t rot_matrix_t;
-
-            rmat4_rotate(rot_matrix, rotation);
-            rmat4_transpose(rot_matrix_t, rot_matrix);
-            rmat4_copy(rot_matrix, rot_matrix_t);
-
-            rvec4_t right = {1, 0, 0, 0};
-            rvec4_t up = {0, 1, 0, 0};
-            rvec4_t forward = {0, 0, 1, 0};
-
-            rvec4_t rel_right;
-            rvec4_t rel_up;
-            rvec4_t rel_forward;
-
-            rmat4_mul_rvec4(RVEC_OUT(rel_right), rot_matrix, right);
-            rmat4_mul_rvec4(RVEC_OUT(rel_up), rot_matrix, up);
-            rmat4_mul_rvec4(RVEC_OUT(rel_forward), rot_matrix, forward);
-
-            rvec3_t right_vec;
-            rvec3_t up_vec;
-            rvec3_t forward_vec;
-
-            rvec3_copy_rvec4(RVEC_OUT(right_vec), rel_right);
-            rvec3_normalize(RVEC_OUT(right_vec));
-            rvec3_mul_scalar(RVEC_OUT(right_vec), right_vec, move_x);
-
-            rvec3_copy_rvec4(RVEC_OUT(up_vec), rel_up);
-            rvec3_normalize(RVEC_OUT(up_vec));
-            rvec3_mul_scalar(RVEC_OUT(up_vec), up_vec, move_y);
-
-            rvec3_copy_rvec4(RVEC_OUT(forward_vec), rel_forward);
-            rvec3_normalize(RVEC_OUT(forward_vec));
-            rvec3_mul_scalar(RVEC_OUT(forward_vec), forward_vec, move_z);
-
-            rvec3_add(RVEC_OUT(position), position, right_vec);
-            rvec3_add(RVEC_OUT(position), position, up_vec);
-            rvec3_add(RVEC_OUT(position), position, forward_vec);
-        }
-
-        if (draw_preview && !should_render && threads_done()) {
-            begin_render(RENDER_TARGET_PREVIEW);
-            render(RENDER_TARGET_PREVIEW, render_rect);
-            end_render();
-        }
-
-        if (should_render && threads_done()) {
-            begin_render(RENDER_TARGET_SCREEN);
-
-            render_semaphore = actual_concurrency;
-
-            if (sdl_threads == NULL) {
-                sdl_threads = (SDL_Thread**) calloc(sizeof(SDL_Thread*), actual_concurrency);
-            }
-
-            int slice = render_rect.w / actual_concurrency;
-
-            SDL_Rect rect = render_rect;
-            rect.w = slice;
-
-            for (int c = 0; c < actual_concurrency; c++) {
-                render_thread_t* thread = (render_thread_t*) malloc(sizeof(render_thread_t));
-
-                rect.x = c * slice;
-
-                thread->pp_thread = &sdl_threads[c];
-                thread->rect = rect;
-                thread->thread_index = c;
-
-                sdl_threads[c] = SDL_CreateThread(render_loop, "RTEverywhereRenderThread", thread);
-            }
-
-            should_render = 0;
-        }
-
-        if (render_semaphore == 0 && threads_done() && render_lock) {
-            end_render();
-        }
-
-        if (recreate_texture && render_semaphore == 0) {
-            wait_for_threads();
-
-            SDL_DestroyTexture(texture);
-            texture = NULL;
-
-            int width;
-            int height;
-            SDL_GetWindowSizeInPixels(window, &width, &height);
-
-            if (manual_size) {
-                width = manual_width;
-                height = manual_height;
-            }
-
-            texture = SDL_CreateTexture(
-                renderer,
-                SDL_PIXELFORMAT_ARGB8888,
-                SDL_TEXTUREACCESS_STREAMING,
-                width,
-                height
-            );
-
-            texture_rect.x = 0;
-            texture_rect.y = 0;
-            texture_rect.w = width;
-            texture_rect.h = height;
-
-            recreate_texture = 0;
-            should_render = 1;
-        }
-
-#ifdef RTEVERYWHERE_IMGUI
-        ImGui_ImplSDL2_NewFrame(window);
-        ImGui_ImplSDLRenderer2_NewFrame();
-        ImGui::NewFrame();
-#endif
-
-#ifdef RTEVERYWHERE_IMGUI
-        ImGui::Begin("Render");
-
-        if (ImGui::CollapsingHeader("Render Status")) {
-            float frac = (float) pixels_rendered / (float) pixel_count;
-            ImGui::Text("Rendered: %i out of %i pixels", pixels_rendered, pixel_count);
-            ImGui::Text("Resolution: %i by %i", texture_rect.w, texture_rect.h);
-
-            ImGui::ProgressBar(frac);
-
-            if (time_render_start <= time_render_end) {
-                uint32_t elapsed = time_render_end - time_render_start;
-                ImGui::Text("Last render took %ums (%fs)", elapsed, (float)elapsed / 1000.0F);
-                ImGui::Text("Last render ran on %i threads", render_concurrency);
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Render Config")) {
-            ImGui::Checkbox("MSAA?", reinterpret_cast<bool*>(&use_msaa));
-
-            ImGui::Checkbox("ACES Tonemap?", reinterpret_cast<bool*>(&tonemapping));
-
-            ImGui::InputInt("Width", &manual_width);
-            ImGui::InputInt("Height", &manual_height);
-
-            ImGui::Checkbox("Manual Size?", (bool*)&manual_size);
-
-            ImGui::DragInt("Concurrency (Threads)", &actual_concurrency, 1.0F, 1, sdl_concurrency);
-
-            if (ImGui::Button("Recreate image")) {
-                recreate_texture = 1;
-            }
-
-            if (ImGui::Button("Re-render")) {
-                should_render = 1;
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Scene")) {
-            ImGui::Indent();
-
-            if (ImGui::DragInt("Mirror Bounces", &scene.mirror_bounces, 1.0F, 1, 10)) {
-                should_render = 1;
-            }
-
-            if (ImGui::CollapsingHeader("Sun")) {
-                ImGui::Indent();
-
-                ImGui::DragFloat("Intensity", &scene.sun_light.intensity, 1.0F, 0.01F, 1000.0F);
-
-                ImGui::Unindent();
-            }
-
-            ImGui::Unindent();
-        }
-
-        ImGui::End();
-
-        ImGui::Begin("Software Credit", &credits_open);
-
-        ImGui::BulletText("Dear ImGui, by Omar Cornut");
-
-        ImGui::Indent();
-        ImGui::BulletText("Thank you Omar and contributors for this amazing and easy to use UI library!");
-        ImGui::Unindent();
-
-        ImGui::BulletText("SDL2, by Sam Lantinga");
-
-        ImGui::Indent();
-        ImGui::BulletText("Thank you Sam Lantinga and contributors for SDL, without it, I'd have to write the windowing interfaces myself :)");
-        ImGui::Unindent();
-
-        ImGui::End();
-#endif
-
-        SDL_Texture* target_texture = texture;
-        SDL_Rect target_rect = texture_rect;
-
-        if (draw_preview) {
-            target_texture = preview_texture;
-            target_rect = preview_rect;
-        }
-
-        SDL_RenderClear(renderer);
-
-        //SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
-        SDL_RenderCopy(renderer, target_texture, NULL, NULL);
-
-#ifdef RTEVERYWHERE_IMGUI
-        ImGui::Render();
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
-#endif
-
-        SDL_RenderPresent(renderer);
+        program_loop();
     }
 
     wait_for_threads();
+#endif
 
     return 0;
 }

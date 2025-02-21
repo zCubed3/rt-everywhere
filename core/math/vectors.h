@@ -15,7 +15,7 @@
 #define VECTORS_ARE_VECTORIZED
 
 typedef real_t rvec2_t __attribute__((ext_vector_type(2)));
-typedef real_t rvec3_t __attribute__((ext_vector_type(3)));
+typedef real_t rvec3_t __attribute__((ext_vector_type(4)));
 typedef real_t rvec4_t __attribute__((ext_vector_type(4)));
 
 #endif
@@ -61,24 +61,32 @@ extern inline void rvec3_copy(rvec3_out_t dst, const rvec3_t src);
 extern inline void rvec3_copy_scalar(rvec3_out_t dst, real_t s);
 extern inline void rvec3_copy_rvec4(rvec3_out_t dst, const rvec4_t src);
 
-extern real_t rvec3_length_sqr(const rvec3_t vec);
-extern real_t rvec3_length(const rvec3_t vec);
-extern real_t rvec3_dot(const rvec3_t a, const rvec3_t b);
+extern inline real_t rvec3_length_sqr(const rvec3_t vec);
+extern inline real_t rvec3_length(const rvec3_t vec);
+extern inline real_t rvec3_dot(const rvec3_t a, const rvec3_t b);
 
-extern void rvec3_normalize(rvec3_out_t dst);
-extern void rvec3_saturate(rvec3_out_t dst);
-extern void rvec3_cross(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
-extern void rvec3_reflect(rvec3_out_t dst, const rvec3_t incoming, const rvec3_t normal);
+extern inline void rvec3_normalize(rvec3_out_t dst);
+extern inline void rvec3_saturate(rvec3_out_t dst);
+extern inline void rvec3_cross(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
+extern inline void rvec3_reflect(rvec3_out_t dst, const rvec3_t incoming, const rvec3_t normal);
 
-extern void rvec3_add(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
-extern void rvec3_sub(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
-extern void rvec3_mul(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
-extern void rvec3_div(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
+extern inline void rvec3_add(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
+extern inline void rvec3_sub(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
+extern inline void rvec3_mul(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
+extern inline void rvec3_div(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
 
-extern void rvec3_add_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
-extern void rvec3_sub_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
-extern void rvec3_mul_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
-extern void rvec3_div_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
+extern inline void rvec3_add_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
+extern inline void rvec3_sub_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
+extern inline void rvec3_mul_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
+extern inline void rvec3_div_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
+
+extern inline void rvec3_rcp(rvec3_out_t dst, const rvec3_t a);
+
+extern inline void rvec3_min_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
+extern inline void rvec3_max_scalar(rvec3_out_t dst, const rvec3_t a, real_t s);
+
+extern inline void rvec3_min(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
+extern inline void rvec3_max(rvec3_out_t dst, const rvec3_t a, const rvec3_t b);
 
 //
 // rvec4_t

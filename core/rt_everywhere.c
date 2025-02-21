@@ -516,6 +516,7 @@ int trace_scene(rte_fragment_t *p_fragment, const rte_ray_t ray, const rte_scene
 		hit = 1;
 	}
 
+    // TODO: This is not threadsafe
 	// If the spheres are not initialized, initialize then
 	if (!spheres_generated) {
 		generate_spheres();
@@ -581,6 +582,7 @@ void shade_fragment(rvec3_out_t dst_col, rte_fragment_t fragment, rte_ray_t ray,
 
 	real_t blinn_phong = real_saturate(rvec3_dot(fragment.normal, halfway));
 	blinn_phong = real_pow(blinn_phong, REAL(64.0));
+    blinn_phong *= scene.sun_light.intensity;
 	blinn_phong *= (real_t)shadow;
 
 	//
