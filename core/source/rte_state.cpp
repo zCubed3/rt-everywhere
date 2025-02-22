@@ -7,6 +7,14 @@
 #include <pipeline/rte_framebuffer.hpp>
 #include <scene/rte_camera.hpp>
 
+#include <sol/sol.hpp>
+
+void rteState::LoadLuaModules() {
+
+    // TODO: Use lua for scene descriptions
+
+}
+
 void rteState::Render(rteRenderTarget rt) {
 
     if (rt.pFramebuffer == nullptr) {
@@ -18,6 +26,8 @@ void rteState::Render(rteRenderTarget rt) {
     // After locking the framebuffer we start tracing the scene line by line
     int width = rt.pFramebuffer->GetWidth();
     int height = rt.pFramebuffer->GetHeight();
+
+    rt.camera.aspect = (float)rt.pFramebuffer->GetWidth() / (float)rt.pFramebuffer->GetHeight();
 
     rt.camera.ComputeMatrix();
 
@@ -32,8 +42,10 @@ void rteState::Render(rteRenderTarget rt) {
 
             ray.direction = rt.camera.NDCToRayDirection(glm::vec2(u, v));
 
-            rteFragment fragment = scene.TraceRay(ray);
-            rt.pFramebuffer->WritePixel(x, y, fragment.debugColor);
+            rteFragment fragment = scene.TraceScene(ray, maxNumMirrorBounces);
+
+            //rt.pFramebuffer->WritePixel(x, y, fragment.debugColor);
+            rt.pFramebuffer->WritePixel(x, y, glm::vec4(fragment.shaded, 1.0F));
         }
     }
 

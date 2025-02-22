@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Liam Reese
 //
 
-#include <data/rte_transform.hpp>
+#include <scene/rte_transform.hpp>
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -37,5 +37,5 @@ void rteTransform::SetScale(const glm::vec3 &scale) {
 }
 
 void rteTransform::SetEulerRotation(const glm::vec3 &euler) {
-    this->rotation = glm::quat(euler);
+    this->rotation = glm::normalize(glm::quat(euler));
 }

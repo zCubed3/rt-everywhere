@@ -8,6 +8,10 @@
 #include <scene/rte_scene.hpp>
 #include <pipeline/rte_rendertarget.hpp>
 
+#include <sol/sol.hpp>
+
+typedef struct lua_State lua_State;
+
 /// @brief All of the data required for RTE to function
 class rteState {
 
@@ -22,10 +26,17 @@ public:
     //
     int maxNumMirrorBounces = 3;
 
+    sol::state luaState;
+
     //
     // Functions
     //
 public:
+
+    // TODO: Load more than 1 lua state to allow concurrency
+
+    /// @brief Loads lua modules for shading and ray manipulation
+    void LoadLuaModules();
 
     /// @brief Immediately renders the active scene to the render target
     void Render(rteRenderTarget rt);

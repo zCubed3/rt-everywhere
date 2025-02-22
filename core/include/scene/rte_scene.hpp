@@ -6,36 +6,28 @@
 #define RTEVERYWHERE_RTE_SCENE_HPP
 
 #include <data/rte_ray.hpp>
-
-// TODO: Stupid, move this out
-struct rteFragment {
-
-public:
-    glm::vec3 position;
-    glm::vec3 normal;
-
-    float depth;
-
-    glm::vec4 debugColor;
-
-public:
-    rteFragment() = default;
-
-    rteFragment(float far) : depth(far) {
-
-    }
-
-};
+#include <data/rte_fragment.hpp>
 
 class rteScene {
 
 protected:
-    rteFragment TraceGround(const rteRay& ray);
+    float farClip = 1000.0F;
 
 public:
     bool hasGroundPlane = true;
 
-    rteFragment TraceRay(const rteRay& ray);
+    glm::vec3 skyColor = glm::vec3(51 / 255.0F, 0, 255 / 255.0F);
+
+    float groundCheckerSize = 10.0F;
+    glm::vec3 groundColor1 = glm::vec3(255 / 255.0F, 0, 137.0F / 255.0F);
+    glm::vec3 groundColor2 = glm::vec3(5 / 255.0F, 5 / 255.0F, 5 / 255.0F);
+    float groundSpecular1 = 0.5F;
+    float groundSpecular2 = 0.0F;
+
+    rteFragment TraceGround(const rteRay& ray);
+    rteFragment TraceSky(const rteRay& ray);
+
+    rteFragment TraceScene(const rteRay& ray, int recursion);
 
 };
 

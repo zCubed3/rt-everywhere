@@ -20,10 +20,21 @@ FetchContent_Declare(glm
         GIT_TAG 2d4c4b4dd31fde06cfffad7915c2b3006402322f
 )
 
-FetchContent_MakeAvailable(glm)
+FetchContent_Declare(luajit
+        GIT_REPOSITORY https://github.com/zCubed3/LuaJIT.git
+        GIT_TAG 0625d373d7e2d42223cdc77a3844a49b4e37326a
+)
 
-target_include_directories(RTE PUBLIC glm)
-target_link_libraries(RTE PUBLIC glm)
+FetchContent_Declare(sol2
+        GIT_REPOSITORY https://github.com/ThePhD/sol2.git
+        GIT_TAG eba86625b707e3c8c99bbfc4624e51f42dc9e561
+)
+
+set(SOL2_BUILD_LUA FALSE BOOL)
+FetchContent_MakeAvailable(glm luajit sol2)
+
+target_include_directories(RTE PUBLIC glm LuaJIT::LuaJIT ${sol2_SOURCE_DIR}/include)
+target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT)
 
 #
 # Aliasing

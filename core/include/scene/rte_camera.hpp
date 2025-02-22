@@ -7,7 +7,7 @@
 
 // TODO: Orthographic and equirectangular cameras?
 
-#include <data/rte_transform.hpp>
+#include <scene/rte_transform.hpp>
 
 /// @brief The "shape" or type of camera this is, changes projection scheme
 enum class rteCameraType {

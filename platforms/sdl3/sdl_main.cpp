@@ -19,8 +19,19 @@
 #include <backends/imgui_impl_sdlrenderer3.h>
 #endif
 
-#define PREVIEW_SIZE_X 228
-#define PREVIEW_SIZE_Y 128
+//#define LOW_RES_FB
+
+#ifdef LOW_RES_FB
+
+#define PREVIEW_SIZE_X (640 >> 2)
+#define PREVIEW_SIZE_Y (480 >> 2)
+
+#else
+
+#define PREVIEW_SIZE_X (640)
+#define PREVIEW_SIZE_Y (480)
+
+#endif
 
 int pixels_rendered = 0;
 int pixel_count = 1;
@@ -187,6 +198,8 @@ int main(int argc, char** argv) {
 
     rteState state;
 
+    // TODO: Lua setup will be made part of state init
+    state.LoadLuaModules();
     camera.transform.SetPosition(glm::vec3(0, 1, 0));
 
 #ifdef RTEVERYWHERE_IMGUI
@@ -294,9 +307,9 @@ int main(int argc, char** argv) {
                 if (lock_cursor) {
                     static glm::vec3 euler;// = glm::degrees(camera.transform.GetEulerRotation());
 
-                    euler.z = 0;
-                    euler.y -= event.motion.xrel / 10.0F;
                     euler.x -= event.motion.yrel / 10.0F;
+                    euler.y -= event.motion.xrel / 10.0F;
+                    euler.z = 0;
 
                     camera.transform.SetEulerRotation(glm::radians(euler));
                 }
@@ -323,7 +336,7 @@ int main(int argc, char** argv) {
         }
 
         if ((w_down || s_down || a_down || d_down || q_down || e_down) && lock_cursor) {
-            glm::vec3 movement;
+            glm::vec3 movement = glm::vec3(0.0F);
 
             if (w_down) {
                 movement.z = -1;
@@ -362,7 +375,8 @@ int main(int argc, char** argv) {
             //matrix = glm::inverse(matrix);
 
             movement = glm::normalize(movement);
-            movement = matrix * glm::vec4(movement, 0.0F);
+            //printf("%f, %f, %f\n", movement.x, movement.y, movement.z);
+            movement = camera.transform.GetRotation() * movement;
             movement *= gear * delta_time;
 
             camera.transform.SetPosition(camera.transform.GetPosition() + movement);
