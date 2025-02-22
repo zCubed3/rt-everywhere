@@ -1,8 +1,0 @@
-[submodule "platforms/sdl/dependencies/SDL"]
-	path = platforms/sdl2/dependencies/SDL
-	url = https://github.com/libsdl-org/SDL.git
-	branch = SDL2
-[submodule "platforms/sdl2/dependencies/imgui"]
-	path = platforms/sdl2/dependencies/imgui
-	url = https://github.com/ocornut/imgui.git
-	branch = docking

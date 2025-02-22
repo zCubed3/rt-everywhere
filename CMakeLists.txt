@@ -29,6 +29,11 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 
 #
+# Dependencies
+#
+include(FetchContent)
+
+#
 # Platform variables
 #
 set(RT_EVERYWHERE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core)
@@ -39,8 +44,8 @@ if (NOT DEFINED RT_EVERYWHERE_PLATFORM)
     endif()
 
     if (NOT DEFINED RT_EVERYWHERE_PLATFORM)
-        message("No native harness found for current platform! Using SDL2 harness!")
-        set(RT_EVERYWHERE_PLATFORM "SDL2")
+        message("No native harness found for current platform! Using SDL3 harness!")
+        set(RT_EVERYWHERE_PLATFORM "SDL3")
     endif()
 endif()
 
@@ -55,9 +60,9 @@ add_subdirectory(core)
 # Harnesses
 #
 
-if (${RT_EVERYWHERE_PLATFORM} STREQUAL SDL2)
-    add_subdirectory(platforms/sdl2)
-    set(RT_EVERYWHERE_HARNESS SDL2Harness)
+if (${RT_EVERYWHERE_PLATFORM} STREQUAL SDL3)
+    add_subdirectory(platforms/sdl3)
+    set(RT_EVERYWHERE_HARNESS SDL3Harness)
 endif()
 
 if (${RT_EVERYWHERE_PLATFORM} STREQUAL NINTENDO_3DS)
