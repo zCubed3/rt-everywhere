@@ -36,9 +36,13 @@ endif()
 
 add_executable(SDL3Harness ${RT_HARNESS_SDL3_SOURCES})
 
-target_include_directories(SDL3Harness PUBLIC SDL3::SDL3 RTEverywhere)
+target_include_directories(SDL3Harness PUBLIC
+        RTE::RTE
+        SDL3::SDL3)
 
-target_link_libraries(SDL3Harness PUBLIC RTEverywhere SDL3::SDL3)
+target_link_libraries(SDL3Harness PUBLIC
+        RTE::RTE
+        SDL3::SDL3)
 
 if (SDL3_IMGUI_SUPPORT)
     target_include_directories(SDL3Harness PUBLIC ${dearimgui_SOURCE_DIR})
