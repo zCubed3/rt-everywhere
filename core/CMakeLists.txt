@@ -27,14 +27,9 @@ FetchContent_Declare(luajit
         GIT_TAG 0ec7da007289fec13edf7d57c336e74e6823b6e6
 )
 
-FetchContent_Declare(sol2
-        GIT_REPOSITORY https://github.com/ThePhD/sol2.git
-        GIT_TAG eba86625b707e3c8c99bbfc4624e51f42dc9e561
-)
+set(LuaJIT_STATIC On CACHE INTERNAL "")
 
-set(SOL2_BUILD_LUA FALSE BOOL)
-
-FetchContent_MakeAvailable(glm luajit sol2)
+FetchContent_MakeAvailable(glm luajit)
 
 target_include_directories(RTE PUBLIC glm LuaJIT::LuaJIT ${sol2_SOURCE_DIR}/include)
 target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT)
@@ -42,9 +37,28 @@ target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT)
 #
 # Lua source files
 #
-add_custom_command(TARGET RTE PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/lua/ ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lua
+file(GLOB_RECURSE RTE_LUA_SRCS
+    "${CMAKE_CURRENT_SOURCE_DIR}/lua/*.lua"
 )
+
+foreach(LUA_SRC ${RTE_LUA_SRCS})
+    # Preserve subdirectory
+    string(REPLACE "${CMAKE_CURRENT_SOURCE_DIR}/lua/" "" REL_PATH ${LUA_SRC})
+
+    add_custom_command(
+            OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lua/${REL_PATH}"
+            COMMENT "Copying Lua script ${REL_PATH}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${LUA_SRC} "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lua/${REL_PATH}"
+            DEPENDS ${LUA_SRC}
+    )
+
+    #message(NOTICE "Copying lua file ${LUA_SRC}")
+    list(APPEND RTE_LUA_FILES "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lua/${REL_PATH}")
+endforeach()
+
+add_custom_target(RTE_CopyLua ALL DEPENDS ${RTE_LUA_FILES})
+
+add_dependencies(RTE RTE_CopyLua)
 
 #
 # Aliasing
