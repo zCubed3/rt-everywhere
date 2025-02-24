@@ -11,5 +11,6 @@ void rteMirrorShader::ShadeFragment(const rteShaderInput& input, rteFragment& fr
 
     input.curScene->BounceMirror(input.curState, input.ray, mirrorFrag);
     fragment.shaded = mirrorFrag.shaded;
+    fragment.hitRay = mirrorFrag.hitRay;
 
 }

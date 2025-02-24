@@ -14,7 +14,7 @@ struct rteAABB {
     glm::vec3 min;
     glm::vec3 max;
 
-    bool IntersectRay(const rteRay& ray, float tMin, float tMax);
+    bool IntersectRay(const rteRay &ray, float& hitT, float tMin, float tMax);
 };
 
 #endif //RTEVERYWHERE_RTE_AABB_H

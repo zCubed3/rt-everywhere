@@ -31,10 +31,14 @@ protected:
 public:
     rteScene scene;
 
+    // TODO: Store this data somewhere else!
+    uint64_t highestShadeTime;
+
     //
     // Rendering quality
     //
-    int maxNumMirrorBounces = 3;
+    bool visualizeBounceHeat = false;
+    bool visualizeShadeTime = false;
 
     sol::state luaState;
 
@@ -64,7 +68,6 @@ public:
     }
 
     // TODO: RenderAsync
-
 };
 
 #endif //RTEVERYWHERE_RTE_STATE_HPP

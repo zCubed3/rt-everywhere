@@ -33,6 +33,7 @@ void rteScene::TraceSky(const rteRay &ray, rteFragment& fragment) const {
 
     float skyPhi = glm::dot(ray.direction, glm::vec3(0, 1, 0));
     skyPhi = glm::clamp(skyPhi, 0.0F, 1.0F);
+    skyPhi = glm::pow(skyPhi, 0.35F);
 
     fragment.depth = farClip;
     fragment.shaded = glm::vec4(skyColor * skyPhi, 1);
@@ -67,6 +68,12 @@ void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &
         fragment
     };
 
+    const glm::vec3 lightDir = glm::normalize(glm::vec3(1.0F, 1.0F, 1.0F));
+    //glm::vec3 lightDir = glm::vec3(1, 1, 1) - fragment.position;
+    //float lightDistance = glm::length(lightDir);
+    //lightDir /= lightDistance;
+    float lightDistance = 9999;
+
     if (fragment.materialIdx == 1) { // TODO: TEMP Ground
         /*
         glm::vec3 checker = glm::floor(fragment.position * groundCheckerSize);
@@ -91,6 +98,15 @@ void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &
         }
 
         shader->ShadeFragment(input, fragment);
+
+        rteFragment shadowFragment;
+        rteRay shadowRay(fragment.position + fragment.normal * 0.001F, lightDir);
+
+        float shadow = !TraceSceneSimple(shadowRay, shadowFragment);
+        // Shadow OOR
+        if (shadowFragment.depth < lightDistance) {
+            fragment.shaded *= shadow;
+        }
     }
 
     if (fragment.materialIdx == 2) { // TODO: TEMP Sphere
@@ -105,10 +121,25 @@ void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &
 
         shader->ShadeFragment(input, fragment);
     }
+
+    if (fragment.materialIdx == 3) { // TODO: TEMP Sphere
+        fragment.shaded = glm::vec3(1, 1, 1) * glm::clamp(glm::dot(fragment.normal, lightDir), 0.0F, 1.0F);
+
+        rteFragment shadowFragment;
+        rteRay shadowRay(fragment.position + fragment.normal * 0.001F, lightDir);
+
+        float shadow = !TraceSceneSimple(shadowRay, shadowFragment);
+
+        // Shadow OOR
+        if (shadowFragment.depth < lightDistance) {
+            fragment.shaded *= shadow;
+        }
+
+        //BounceMirror(state, ray, fragment);
+    }
 }
 
-bool rteScene::TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment) const {
-
+bool rteScene::TraceSceneSimple(const rteRay &ray, rteFragment &fragment) const {
     if (ray.bounces >= numMirrorBounces) {
         // TODO: Is this bad?
         fragment = rteFragment::INVALID_FRAGMENT;
@@ -131,30 +162,45 @@ bool rteScene::TraceScene(const rteState* state, const rteRay &ray, rteFragment&
         }
     }
 
-    const float SPHERE_RADIUS = 2.0F;
+    const float SPHERE_RADIUS = 1.0F;
     const glm::vec3 SPHERE_ORIGIN = glm::vec3(0, SPHERE_RADIUS, -5);
 
-    rteAABB aabb;
-    aabb.min = SPHERE_ORIGIN - glm::vec3(SPHERE_RADIUS);
-    aabb.max = SPHERE_ORIGIN + glm::vec3(SPHERE_RADIUS);
+    for (int x = 0; x < 3; x++) {
+        for (int y = 0; y < 3; y++) {
+            glm::vec3 sphereOrigin = SPHERE_ORIGIN + glm::vec3(x * (SPHERE_RADIUS * 3.0F), 0, y * -(SPHERE_RADIUS * 3.0F));
 
-    if (aabb.IntersectRay(ray, 0.001F, farClip)) {
-        rteSphere sphere;
+            rteAABB aabb;
+            aabb.min = sphereOrigin - glm::vec3(SPHERE_RADIUS);
+            aabb.max = sphereOrigin + glm::vec3(SPHERE_RADIUS);
 
-        sphere.radius = SPHERE_RADIUS;
-        sphere.origin = SPHERE_ORIGIN;
+            float depth = farClip;
+            if (aabb.IntersectRay(ray, depth, 0.001F, farClip) && depth < fragment.depth) {
+                rteSphere sphere;
 
-        if (sphere.TraceSphere(ray, fragment))
-            hitSomething = true;
+                sphere.radius = SPHERE_RADIUS;
+                sphere.origin = sphereOrigin;
+
+                if (sphere.TraceSphere(ray, fragment)) {
+                    hitSomething = true;
+                    fragment.materialIdx += (x + y) % 2 == 0;
+                }
+            }
+        }
     }
 
     if (!hitSomething) { // Completely unshaded fragment, this was likely only the sky
         return false;
     }
 
-    // Shade fragment
-    ShadeFrag(state, ray, fragment);
-
     return fragment.depth <= farClip;
+}
 
+bool rteScene::TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment) const {
+    bool result = TraceSceneSimple(ray, fragment);
+
+    if (result) {
+        ShadeFrag(state, ray, fragment);
+    }
+
+    return result;
 }

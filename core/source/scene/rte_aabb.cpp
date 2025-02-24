@@ -4,7 +4,7 @@
 
 #include <scene/rte_aabb.hpp>
 
-bool rteAABB::IntersectRay(const rteRay &ray, float tMin, float tMax) {
+bool rteAABB::IntersectRay(const rteRay &ray, float& hitT, float tMin, float tMax) {
     glm::vec3 invD, t0s, t1s;
 
     invD = 1.0F / ray.direction;
@@ -20,5 +20,6 @@ bool rteAABB::IntersectRay(const rteRay &ray, float tMin, float tMax) {
     tMin = glm::max(tMin, glm::max(tsmaller[0], glm::max(tsmaller[1], tsmaller[2])));
     tMax = glm::min(tMax, glm::min(tbigger[0], glm::min(tbigger[1], tbigger[2])));
 
+    hitT = tMin;
     return (tMin < tMax);
 }

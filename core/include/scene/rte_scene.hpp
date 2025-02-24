@@ -34,6 +34,7 @@ public:
     void BounceMirror(const rteState* state, const rteRay& ray, rteFragment& fragment) const;
     void ShadeFrag(const rteState* state, const rteRay& ray, rteFragment& fragment) const;
 
+    bool TraceSceneSimple(const rteRay& ray, rteFragment& fragment) const;
     bool TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment) const;
 };
 

@@ -34,6 +34,8 @@ FetchContent_MakeAvailable(glm luajit)
 target_include_directories(RTE PUBLIC glm LuaJIT::LuaJIT ${sol2_SOURCE_DIR}/include)
 target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT)
 
+target_compile_definitions(RTE PUBLIC GLM_FORCE_INLINE)
+
 #
 # Lua source files
 #
@@ -59,6 +61,11 @@ endforeach()
 add_custom_target(RTE_CopyLua ALL DEPENDS ${RTE_LUA_FILES})
 
 add_dependencies(RTE RTE_CopyLua)
+
+if (WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    message("Enabling release optimizations...")
+    target_compile_options(RTE PRIVATE "/Qpar" "/fp:fast" "/Ox" "/arch:AVX2")
+endif()
 
 #
 # Aliasing

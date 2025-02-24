@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.14)
 project(RTEverywhere C CXX)
 
 set(CMAKE_C_STANDARD 99)
@@ -32,6 +32,14 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 # Dependencies
 #
 include(FetchContent)
+
+#
+# Config
+#
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    message("Enabling LTO...")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 
 #
 # Platform variables
