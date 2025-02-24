@@ -7,6 +7,8 @@
 #include <scene/rte_primitive.hpp>
 #include <scene/rte_aabb.hpp>
 
+#include <rte_state.hpp>
+
 rteFragment rteScene::TraceGround(const rteRay &ray) {
     float groundDistance = -ray.origin.y / ray.direction.y;
 
@@ -38,7 +40,7 @@ void rteScene::TraceSky(const rteRay &ray, rteFragment& fragment) {
 
 }
 
-void rteScene::BounceMirror(const rteRay &ray, rteFragment &fragment) {
+void rteScene::BounceMirror(const rteState* state, const rteRay &ray, rteFragment &fragment) {
 
     rteRay reflected;
     reflected.origin = (fragment.position + fragment.normal * 0.0001F);
@@ -48,7 +50,7 @@ void rteScene::BounceMirror(const rteRay &ray, rteFragment &fragment) {
     rteFragment sceneRetrace;
 
     // TODO: Early exit
-    bool hit = TraceScene(reflected, sceneRetrace);
+    bool hit = TraceScene(state, reflected, sceneRetrace);
     fragment.shaded *= sceneRetrace.shaded;
 
     // TODO: This is stupid
@@ -56,9 +58,9 @@ void rteScene::BounceMirror(const rteRay &ray, rteFragment &fragment) {
 
 }
 
-void rteScene::ShadeFrag(const rteRay& ray, rteFragment &fragment) {
+void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &fragment) {
     if (fragment.materialIdx == 1) { // TODO: TEMP Ground
-
+        /*
         glm::vec3 checker = glm::floor(fragment.position * groundCheckerSize);
 
         float mod = glm::mod(checker.x + glm::mod(checker.z, 2.0F), 2.0F);
@@ -69,19 +71,35 @@ void rteScene::ShadeFrag(const rteRay& ray, rteFragment &fragment) {
         rteFragment metalFrag = fragment;
         metalFrag.shaded = glm::vec3(1, 1, 1);
 
-        BounceMirror(ray, metalFrag);
+        BounceMirror(state, ray, metalFrag);
         fragment.shaded = glm::mix(fragment.shaded, fragment.shaded * metalFrag.shaded, specular);
         fragment.hitRay = metalFrag.hitRay;
+         */
+
+        static const rteShader* shader = nullptr;
+
+        if (shader == nullptr) {
+            shader = state->GetShader("ground_shader");
+        }
+
+        shader->ShadeFragment(this, ray, fragment);
     }
 
     if (fragment.materialIdx == 2) { // TODO: TEMP Sphere
-        fragment.shaded = glm::vec3(1, 1, 1);
+        //fragment.shaded = glm::vec3(1, 1, 1);
+        //BounceMirror(state, ray, fragment);
 
-        BounceMirror(ray, fragment);
+        static const rteShader* shader = nullptr;
+
+        if (shader == nullptr) {
+            shader = state->GetShader("default");
+        }
+
+        shader->ShadeFragment(this, ray, fragment);
     }
 }
 
-bool rteScene::TraceScene(const rteRay &ray, rteFragment& fragment) {
+bool rteScene::TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment) {
 
     if (ray.bounces >= numMirrorBounces) {
         // TODO: Is this bad?
@@ -127,7 +145,7 @@ bool rteScene::TraceScene(const rteRay &ray, rteFragment& fragment) {
     }
 
     // Shade fragment
-    ShadeFrag(ray, fragment);
+    ShadeFrag(state, ray, fragment);
 
     return fragment.depth <= farClip;
 

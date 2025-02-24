@@ -24,7 +24,7 @@ FetchContent_Declare(glm
 
 FetchContent_Declare(luajit
         GIT_REPOSITORY https://github.com/zCubed3/LuaJIT.git
-        GIT_TAG 0625d373d7e2d42223cdc77a3844a49b4e37326a
+        GIT_TAG 0ec7da007289fec13edf7d57c336e74e6823b6e6
 )
 
 FetchContent_Declare(sol2
@@ -33,6 +33,7 @@ FetchContent_Declare(sol2
 )
 
 set(SOL2_BUILD_LUA FALSE BOOL)
+
 FetchContent_MakeAvailable(glm luajit sol2)
 
 target_include_directories(RTE PUBLIC glm LuaJIT::LuaJIT ${sol2_SOURCE_DIR}/include)
@@ -41,11 +42,9 @@ target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT)
 #
 # Lua source files
 #
-function (copy_lua_source)
-
-
-
-endfunction()
+add_custom_command(TARGET RTE PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/lua/ ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lua
+)
 
 #
 # Aliasing

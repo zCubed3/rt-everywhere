@@ -7,13 +7,23 @@
 
 #include <scene/rte_scene.hpp>
 #include <pipeline/rte_rendertarget.hpp>
+#include <pipeline/rte_shader.hpp>
 
 #include <sol/sol.hpp>
+
+#include <string>
+#include <unordered_map>
+#include <memory>
 
 typedef struct lua_State lua_State;
 
 /// @brief All of the data required for RTE to function
 class rteState {
+
+protected:
+    std::unordered_map<std::string, rteShader*> loadedShaders = {};
+
+    void LoadLuaModules();
 
     //
     // Public Members
@@ -35,11 +45,23 @@ public:
 
     // TODO: Load more than 1 lua state to allow concurrency
 
-    /// @brief Loads lua modules for shading and ray manipulation
-    void LoadLuaModules();
+    /// @brief Initializes the state
+    void Setup();
 
     /// @brief Immediately renders the active scene to the render target
     void Render(rteRenderTarget rt);
+
+    /// @brief Registers an instance of the provided shader, lifetime is transferred
+    void RegisterShader(rteShader* shader);
+
+    const rteShader* GetShader(const std::string& id) const {
+
+        if (loadedShaders.find(id) == loadedShaders.end())
+            abort(); // OOB
+
+        return loadedShaders.at(id);
+
+    }
 
     // TODO: RenderAsync
 

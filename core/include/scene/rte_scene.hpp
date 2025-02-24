@@ -8,6 +8,8 @@
 #include <data/rte_ray.hpp>
 #include <data/rte_fragment.hpp>
 
+class rteState;
+
 class rteScene {
 
 protected:
@@ -29,10 +31,10 @@ public:
     rteFragment TraceGround(const rteRay& ray);
     void TraceSky(const rteRay& ray, rteFragment& fragment);
 
-    void BounceMirror(const rteRay& ray, rteFragment& fragment);
-    void ShadeFrag(const rteRay& ray, rteFragment& fragment);
+    void BounceMirror(const rteState* state, const rteRay& ray, rteFragment& fragment);
+    void ShadeFrag(const rteState* state, const rteRay& ray, rteFragment& fragment);
 
-    bool TraceScene(const rteRay &ray, rteFragment& fragment);
+    bool TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment);
 };
 
 #endif //RTEVERYWHERE_RTE_SCENE_HPP

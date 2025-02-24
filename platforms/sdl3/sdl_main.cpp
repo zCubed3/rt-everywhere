@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
     rteState state;
 
     // TODO: Lua setup will be made part of state init
-    state.LoadLuaModules();
+    state.Setup();
     camera.transform.SetPosition(glm::vec3(0, 1, 0));
 
 #ifdef RTEVERYWHERE_IMGUI
