@@ -13,7 +13,7 @@ struct rteSphere {
     glm::vec3 origin;
     float radius;
 
-    rteFragment TraceSphere(const rteRay& ray) const;
+    bool TraceSphere(const rteRay& ray, rteFragment& fragment) const;
 
 };
 

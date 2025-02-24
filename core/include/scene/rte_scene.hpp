@@ -24,11 +24,15 @@ public:
     float groundSpecular1 = 0.5F;
     float groundSpecular2 = 0.0F;
 
+    int numMirrorBounces = 4;
+
     rteFragment TraceGround(const rteRay& ray);
-    rteFragment TraceSky(const rteRay& ray);
+    void TraceSky(const rteRay& ray, rteFragment& fragment);
 
-    rteFragment TraceScene(const rteRay& ray, int recursion);
+    void BounceMirror(const rteRay& ray, rteFragment& fragment);
+    void ShadeFrag(const rteRay& ray, rteFragment& fragment);
 
+    bool TraceScene(const rteRay &ray, rteFragment& fragment);
 };
 
 #endif //RTEVERYWHERE_RTE_SCENE_HPP

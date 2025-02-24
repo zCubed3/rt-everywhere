@@ -7,10 +7,14 @@
 
 #include <glm/glm.hpp>
 
+#include <data/rte_ray.hpp>
+
 /// @brief Represents an axis aligned bounding box, used to accelerate ray lookups
 struct rteAABB {
     glm::vec3 min;
     glm::vec3 max;
+
+    bool IntersectRay(const rteRay& ray, float tMin, float tMax);
 };
 
 #endif //RTEVERYWHERE_RTE_AABB_H

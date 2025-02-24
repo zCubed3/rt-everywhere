@@ -1,3 +1,7 @@
+//
+// Copyright (c) 2025 Liam Reese
+//
+
 #ifndef RTEVERYWHERE_RTE_BVH_HPP
 #define RTEVERYWHERE_RTE_BVH_HPP
 

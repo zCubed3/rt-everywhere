@@ -2,8 +2,10 @@
 # RT Everywhere Library
 #
 file(GLOB_RECURSE RT_EVERYWHERE_SOURCES
-    *.cpp
-    *.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/*.hpp
 )
 
 add_library(RTE STATIC ${RT_EVERYWHERE_SOURCES})
@@ -35,6 +37,15 @@ FetchContent_MakeAvailable(glm luajit sol2)
 
 target_include_directories(RTE PUBLIC glm LuaJIT::LuaJIT ${sol2_SOURCE_DIR}/include)
 target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT)
+
+#
+# Lua source files
+#
+function (copy_lua_source)
+
+
+
+endfunction()
 
 #
 # Aliasing

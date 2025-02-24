@@ -5,12 +5,13 @@
 #include <scene/rte_scene.hpp>
 
 #include <scene/rte_primitive.hpp>
+#include <scene/rte_aabb.hpp>
 
 rteFragment rteScene::TraceGround(const rteRay &ray) {
     float groundDistance = -ray.origin.y / ray.direction.y;
 
     if (groundDistance < 0)
-        return rteFragment(999999);
+        return rteFragment::INVALID_FRAGMENT;
 
     rteFragment fragment;
 
@@ -26,57 +27,36 @@ rteFragment rteScene::TraceGround(const rteRay &ray) {
 
 }
 
-rteFragment rteScene::TraceSky(const rteRay &ray) {
-
-    rteFragment fragment(farClip);
+void rteScene::TraceSky(const rteRay &ray, rteFragment& fragment) {
 
     float skyPhi = glm::dot(ray.direction, glm::vec3(0, 1, 0));
     skyPhi = glm::clamp(skyPhi, 0.0F, 1.0F);
 
+    fragment.depth = farClip;
     fragment.shaded = glm::vec4(skyColor * skyPhi, 1);
     fragment.materialIdx = 0;
 
-    return fragment;
+}
+
+void rteScene::BounceMirror(const rteRay &ray, rteFragment &fragment) {
+
+    rteRay reflected;
+    reflected.origin = (fragment.position + fragment.normal * 0.0001F);
+    reflected.direction = glm::reflect(ray.direction, -fragment.normal);
+    reflected.bounces = ray.bounces + 1;
+
+    rteFragment sceneRetrace;
+
+    // TODO: Early exit
+    bool hit = TraceScene(reflected, sceneRetrace);
+    fragment.shaded *= sceneRetrace.shaded;
+
+    // TODO: This is stupid
+    fragment.hitRay = sceneRetrace.hitRay;
 
 }
 
-rteFragment rteScene::TraceScene(const rteRay &ray, int recursion) {
-
-    if (recursion < 0) {
-        return rteFragment(farClip);
-    }
-
-    rteFragment fragment = TraceSky(ray);
-
-    if (hasGroundPlane) {
-        rteFragment groundFrag = TraceGround(ray);
-
-        if (groundFrag.depth < fragment.depth) {
-            fragment = groundFrag;
-        }
-    }
-
-    rteSphere sphere;
-
-    sphere.radius = 2.0F;
-    sphere.origin = glm::vec3(0, sphere.radius * 0.5F, -5);
-
-    rteFragment sphereFrag = sphere.TraceSphere(ray);
-
-    if (sphereFrag.depth < fragment.depth) {
-        sphereFrag.materialIdx = 2;
-        fragment = sphereFrag;
-    }
-
-    if (fragment.depth >= farClip) {
-        recursion = -1;
-        return fragment; // Fragment not shaded!
-    }
-
-    // Shade fragment
-    float shadePhi = glm::dot(fragment.normal, glm::vec3(0, 1, 0));
-    fragment.shaded = glm::vec3(1, 1, 1) * shadePhi;
-
+void rteScene::ShadeFrag(const rteRay& ray, rteFragment &fragment) {
     if (fragment.materialIdx == 1) { // TODO: TEMP Ground
 
         glm::vec3 checker = glm::floor(fragment.position * groundCheckerSize);
@@ -86,23 +66,69 @@ rteFragment rteScene::TraceScene(const rteRay &ray, int recursion) {
 
         float specular = mod ? groundSpecular1 : groundSpecular2;
 
-        rteRay reflected;
-        reflected.origin = (fragment.position + fragment.normal * 0.0001F);
-        reflected.direction = glm::reflect(ray.direction, -fragment.normal);
+        rteFragment metalFrag = fragment;
+        metalFrag.shaded = glm::vec3(1, 1, 1);
 
-        fragment.shaded = glm::mix(fragment.shaded, fragment.shaded * TraceScene(reflected, --recursion).shaded, specular);
-
+        BounceMirror(ray, metalFrag);
+        fragment.shaded = glm::mix(fragment.shaded, fragment.shaded * metalFrag.shaded, specular);
+        fragment.hitRay = metalFrag.hitRay;
     }
 
     if (fragment.materialIdx == 2) { // TODO: TEMP Sphere
-        rteRay reflected;
-        reflected.direction = glm::reflect(ray.direction, fragment.normal);
-        reflected.origin = (fragment.position + fragment.normal * 0.0001F);
-
         fragment.shaded = glm::vec3(1, 1, 1);
-        fragment.shaded = fragment.shaded * TraceScene(reflected, --recursion).shaded;
+
+        BounceMirror(ray, fragment);
+    }
+}
+
+bool rteScene::TraceScene(const rteRay &ray, rteFragment& fragment) {
+
+    if (ray.bounces >= numMirrorBounces) {
+        // TODO: Is this bad?
+        fragment = rteFragment::INVALID_FRAGMENT;
+        fragment.hitRay = ray;
+
+        return false;
     }
 
-    return fragment;
+    bool hitSomething = false;
+    TraceSky(ray, fragment);
+
+    fragment.hitRay = ray;
+
+    if (hasGroundPlane) {
+        rteFragment groundFrag = TraceGround(ray);
+
+        if (groundFrag.depth < fragment.depth) {
+            hitSomething = true;
+            fragment = groundFrag;
+        }
+    }
+
+    const float SPHERE_RADIUS = 2.0F;
+    const glm::vec3 SPHERE_ORIGIN = glm::vec3(0, SPHERE_RADIUS, -5);
+
+    rteAABB aabb;
+    aabb.min = SPHERE_ORIGIN - glm::vec3(SPHERE_RADIUS);
+    aabb.max = SPHERE_ORIGIN + glm::vec3(SPHERE_RADIUS);
+
+    if (aabb.IntersectRay(ray, 0.001F, farClip)) {
+        rteSphere sphere;
+
+        sphere.radius = SPHERE_RADIUS;
+        sphere.origin = SPHERE_ORIGIN;
+
+        if (sphere.TraceSphere(ray, fragment))
+            hitSomething = true;
+    }
+
+    if (!hitSomething) { // Completely unshaded fragment, this was likely only the sky
+        return false;
+    }
+
+    // Shade fragment
+    ShadeFrag(ray, fragment);
+
+    return fragment.depth <= farClip;
 
 }
