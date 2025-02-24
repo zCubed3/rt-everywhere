@@ -9,8 +9,6 @@
 #include <pipeline/rte_rendertarget.hpp>
 #include <pipeline/rte_shader.hpp>
 
-#include <sol/sol.hpp>
-
 #include <string>
 #include <unordered_map>
 #include <memory>
@@ -39,8 +37,6 @@ public:
     //
     bool visualizeBounceHeat = false;
     bool visualizeShadeTime = false;
-
-    sol::state luaState;
 
     //
     // Functions

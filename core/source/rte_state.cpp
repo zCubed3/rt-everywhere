@@ -7,90 +7,17 @@
 #include <pipeline/rte_framebuffer.hpp>
 #include <scene/rte_camera.hpp>
 
-#include <sol/sol.hpp>
-
 #include <pipeline/rte_default_shader.hpp>
 #include <pipeline/rte_lua_shader.hpp>
 #include <pipeline/rte_mirror_shader.hpp>
 #include <pipeline/rte_ground_shader.hpp>
 
+#include <iostream>
 #include <chrono>
 
 void rteState::LoadLuaModules() {
 
     // TODO: Use lua for scene descriptions
-    luaState = sol::state();
-    luaState.open_libraries(sol::lib::base, sol::lib::package, sol::lib::jit);
-
-    // TODO: Organize this stuff better
-
-    //
-    // GLM types
-    //
-    luaState.new_usertype<glm::vec2>(
-        "vec2",
-
-        sol::constructors<glm::vec2(), glm::vec2(float), glm::vec2(float, float)>(),
-
-        "x", &glm::vec2::x,
-        "y", &glm::vec2::y
-
-        // TODO: Glue math functions
-    );
-
-    luaState.new_usertype<glm::vec3>(
-        "vec3",
-
-        sol::constructors<glm::vec3(), glm::vec3(float), glm::vec3(float, float, float)>(),
-
-        "x", &glm::vec3::x,
-        "y", &glm::vec3::y,
-        "z", &glm::vec3::z
-
-        // TODO: Glue math functions
-    );
-
-    luaState.new_usertype<glm::vec4>(
-        "vec4",
-
-        sol::constructors<glm::vec4(), glm::vec4(float), glm::vec4(float, float, float, float)>(),
-
-        "x", &glm::vec4::x,
-        "y", &glm::vec4::y,
-        "z", &glm::vec4::z,
-        "w", &glm::vec4::w
-
-        // TODO: Glue math functions
-    );
-
-    //
-    // Shader bindings
-    //
-    luaState.new_usertype<rteState>("State",
-        "register_shader", [](rteState* state, rteLuaShader* shader){
-            state->RegisterShader(shader);
-        }
-    );
-
-    luaState.new_usertype<rteFragment>("Fragment",
-
-        "shaded", &rteFragment::shaded,
-        "debug_color", &rteFragment::debugColor
-
-    );
-
-    luaState.new_usertype<rteLuaShader>("Shader",
-        sol::constructors<rteLuaShader(const std::string&, sol::protected_function)>()
-    );
-
-    //
-    // Load init.lua
-    //
-
-    luaState["RTEState"] = this;
-
-    luaState.script_file("./lua/init.lua", sol::load_mode::text);
-
 }
 
 void rteState::Setup() {

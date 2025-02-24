@@ -471,6 +471,7 @@ int main(int argc, char** argv) {
         // TODO: Multiple viewports
         viewport.DrawViewport(renderer);
 
+        SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderClear(renderer);
         //previewFB.SDLRender(renderer);
 

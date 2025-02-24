@@ -7,8 +7,6 @@
 
 #include <pipeline/rte_shader.hpp>
 
-#include <sol/sol.hpp>
-
 class rteLuaShader : public rteShader {
 
 public:
@@ -16,11 +14,8 @@ public:
 
 protected:
     std::string shaderID; // Sent from Lua, captured here to prevent boundary crossing
-    sol::protected_function shaderFunc; // Lua shader delegate;
 
 public:
-    rteLuaShader(const std::string shaderID, sol::protected_function func) : shaderID(shaderID), shaderFunc(func) {}
-
     std::string GetShaderID() const override {
         return shaderID;
     }

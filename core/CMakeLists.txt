@@ -24,14 +24,14 @@ FetchContent_Declare(glm
 
 FetchContent_Declare(luajit
         GIT_REPOSITORY https://github.com/zCubed3/LuaJIT.git
-        GIT_TAG 0ec7da007289fec13edf7d57c336e74e6823b6e6
+        GIT_TAG 437f24714fdf79c15af1659ebe0974af19329f47
 )
 
 set(LuaJIT_STATIC On CACHE INTERNAL "")
 
 FetchContent_MakeAvailable(glm luajit)
 
-target_include_directories(RTE PUBLIC glm LuaJIT::LuaJIT ${sol2_SOURCE_DIR}/include)
+target_include_directories(RTE PUBLIC glm LuaJIT::LuaJIT)
 target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT)
 
 target_compile_definitions(RTE PUBLIC GLM_FORCE_INLINE)
@@ -65,6 +65,11 @@ add_dependencies(RTE RTE_CopyLua)
 if (WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
     message("Enabling release optimizations...")
     target_compile_options(RTE PRIVATE "/Qpar" "/fp:fast" "/Ox" "/arch:AVX2")
+endif()
+
+if (APPLE AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    message("Enabling release optimizations...")
+    target_compile_options(RTE PRIVATE "-funroll-loops" "-O3" "-ffast-math")
 endif()
 
 #
