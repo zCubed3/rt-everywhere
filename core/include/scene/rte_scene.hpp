@@ -28,13 +28,13 @@ public:
 
     int numMirrorBounces = 4;
 
-    rteFragment TraceGround(const rteRay& ray);
-    void TraceSky(const rteRay& ray, rteFragment& fragment);
+    rteFragment TraceGround(const rteRay& ray) const;
+    void TraceSky(const rteRay& ray, rteFragment& fragment) const;
 
-    void BounceMirror(const rteState* state, const rteRay& ray, rteFragment& fragment);
-    void ShadeFrag(const rteState* state, const rteRay& ray, rteFragment& fragment);
+    void BounceMirror(const rteState* state, const rteRay& ray, rteFragment& fragment) const;
+    void ShadeFrag(const rteState* state, const rteRay& ray, rteFragment& fragment) const;
 
-    bool TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment);
+    bool TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment) const;
 };
 
 #endif //RTEVERYWHERE_RTE_SCENE_HPP

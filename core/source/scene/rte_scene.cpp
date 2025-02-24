@@ -9,7 +9,7 @@
 
 #include <rte_state.hpp>
 
-rteFragment rteScene::TraceGround(const rteRay &ray) {
+rteFragment rteScene::TraceGround(const rteRay &ray) const {
     float groundDistance = -ray.origin.y / ray.direction.y;
 
     if (groundDistance < 0)
@@ -29,7 +29,7 @@ rteFragment rteScene::TraceGround(const rteRay &ray) {
 
 }
 
-void rteScene::TraceSky(const rteRay &ray, rteFragment& fragment) {
+void rteScene::TraceSky(const rteRay &ray, rteFragment& fragment) const {
 
     float skyPhi = glm::dot(ray.direction, glm::vec3(0, 1, 0));
     skyPhi = glm::clamp(skyPhi, 0.0F, 1.0F);
@@ -40,7 +40,7 @@ void rteScene::TraceSky(const rteRay &ray, rteFragment& fragment) {
 
 }
 
-void rteScene::BounceMirror(const rteState* state, const rteRay &ray, rteFragment &fragment) {
+void rteScene::BounceMirror(const rteState* state, const rteRay &ray, rteFragment &fragment) const {
 
     rteRay reflected;
     reflected.origin = (fragment.position + fragment.normal * 0.0001F);
@@ -58,7 +58,15 @@ void rteScene::BounceMirror(const rteState* state, const rteRay &ray, rteFragmen
 
 }
 
-void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &fragment) {
+void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &fragment) const {
+
+    rteShaderInput input {
+        state,
+        this,
+        ray,
+        fragment
+    };
+
     if (fragment.materialIdx == 1) { // TODO: TEMP Ground
         /*
         glm::vec3 checker = glm::floor(fragment.position * groundCheckerSize);
@@ -82,7 +90,7 @@ void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &
             shader = state->GetShader("ground_shader");
         }
 
-        shader->ShadeFragment(this, ray, fragment);
+        shader->ShadeFragment(input, fragment);
     }
 
     if (fragment.materialIdx == 2) { // TODO: TEMP Sphere
@@ -92,14 +100,14 @@ void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &
         static const rteShader* shader = nullptr;
 
         if (shader == nullptr) {
-            shader = state->GetShader("default");
+            shader = state->GetShader("mirror");
         }
 
-        shader->ShadeFragment(this, ray, fragment);
+        shader->ShadeFragment(input, fragment);
     }
 }
 
-bool rteScene::TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment) {
+bool rteScene::TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment) const {
 
     if (ray.bounces >= numMirrorBounces) {
         // TODO: Is this bad?

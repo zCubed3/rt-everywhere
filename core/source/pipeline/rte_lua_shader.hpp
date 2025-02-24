@@ -1,3 +1,7 @@
+//
+// Copyright (c) 2025 Liam Reese
+//
+
 #ifndef RTEVERYWHERE_RTE_LUA_SHADER_HPP
 #define RTEVERYWHERE_RTE_LUA_SHADER_HPP
 
@@ -21,8 +25,8 @@ public:
         return shaderID;
     }
 
-    void ShadeFragment(const rteScene *scene, const rteRay &ray, rteFragment &fragment) const override {
-        fragment.shaded = shaderFunc();
+    void ShadeFragment(const rteShaderInput& input, rteFragment& fragment) const override {
+        // TODO: This is really broken!
     }
 
 };

@@ -11,6 +11,8 @@
 
 #include <pipeline/rte_default_shader.hpp>
 #include <pipeline/rte_lua_shader.hpp>
+#include <pipeline/rte_mirror_shader.hpp>
+#include <pipeline/rte_ground_shader.hpp>
 
 void rteState::LoadLuaModules() {
 
@@ -92,6 +94,8 @@ void rteState::LoadLuaModules() {
 void rteState::Setup() {
 
     RegisterShader(new rteDefaultShader());
+    RegisterShader(new rteMirrorShader());
+    RegisterShader(new rteGroundShader());
 
     LoadLuaModules();
 

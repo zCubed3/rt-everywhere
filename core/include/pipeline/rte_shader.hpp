@@ -12,6 +12,15 @@
 
 #include <string>
 
+struct rteShaderInput {
+
+    const rteState* curState;
+    const rteScene* curScene;
+    rteRay ray;
+    rteFragment fragment;
+
+};
+
 class rteShader {
 
 public:
@@ -21,7 +30,7 @@ public:
 
     virtual std::string GetShaderID() const = 0;
 
-    virtual void ShadeFragment(const rteScene* scene, const rteRay &ray, rteFragment &fragment) const = 0;
+    virtual void ShadeFragment(const rteShaderInput& input, rteFragment& fragment) const = 0;
 
 };
 

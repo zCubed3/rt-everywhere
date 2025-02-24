@@ -4,4 +4,4 @@ ground_shader = Shader:new("ground_shader", function()
     return vec3.new(0, 1, 0)
 end)
 
-RTEState:register_shader(ground_shader)
+--RTEState:register_shader(ground_shader)
