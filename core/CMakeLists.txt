@@ -24,7 +24,7 @@ FetchContent_Declare(glm
 
 FetchContent_Declare(luajit
         GIT_REPOSITORY https://github.com/zCubed3/LuaJIT.git
-        GIT_TAG 437f24714fdf79c15af1659ebe0974af19329f47
+        GIT_TAG 2c8957fdda44ab1a42cced1799288bba8210799f
 )
 
 set(LuaJIT_STATIC On CACHE INTERNAL "")
