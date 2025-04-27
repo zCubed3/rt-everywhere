@@ -1,4 +1,4 @@
-/* Copyright (c) 2023 Liam R. (zCubed3)                                                 */
+/* Copyright (c) 2023-2025 Liam R. (zCubed3)                                                 */
 
 #include "sphere.h"
 

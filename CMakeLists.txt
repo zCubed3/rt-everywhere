@@ -13,10 +13,6 @@ if (VITA)
     set(RT_EVERYWHERE_OUTPUT "Vita-${CMAKE_BUILD_TYPE}")
 endif()
 
-if (NINTENDO_3DS)
-    set(RT_EVERYWHERE_OUTPUT "N3DS-${CMAKE_BUILD_TYPE}")
-endif()
-
 # Fallback folder
 if (NOT DEFINED RT_EVERYWHERE_OUTPUT)
     set(RT_EVERYWHERE_OUTPUT "${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_BUILD_TYPE}")
@@ -34,10 +30,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 set(RT_EVERYWHERE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core)
 
 if (NOT DEFINED RT_EVERYWHERE_PLATFORM)
-    if (NINTENDO_3DS)
-        set(RT_EVERYWHERE_PLATFORM "NINTENDO_3DS")
-    endif()
-
     if (NOT DEFINED RT_EVERYWHERE_PLATFORM)
         message("No native harness found for current platform! Using SDL2 harness!")
         set(RT_EVERYWHERE_PLATFORM "SDL2")
@@ -58,9 +50,4 @@ add_subdirectory(core)
 if (${RT_EVERYWHERE_PLATFORM} STREQUAL SDL2)
     add_subdirectory(platforms/sdl2)
     set(RT_EVERYWHERE_HARNESS SDL2Harness)
-endif()
-
-if (${RT_EVERYWHERE_PLATFORM} STREQUAL NINTENDO_3DS)
-    add_subdirectory(platforms/n3ds)
-    set(RT_EVERYWHERE_HARNESS N3DSHarness)
 endif()
