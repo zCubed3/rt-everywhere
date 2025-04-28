@@ -8,8 +8,12 @@
 #include <scene/rte_aabb.hpp>
 
 #include <rte_state.hpp>
+#include "tracy/Tracy.hpp"
 
 rteFragment rteScene::TraceGround(const rteRay &ray) const {
+
+    ZoneScopedN("Trace Ground");
+
     float groundDistance = -ray.origin.y / ray.direction.y;
 
     if (groundDistance < 0)
@@ -31,6 +35,8 @@ rteFragment rteScene::TraceGround(const rteRay &ray) const {
 
 void rteScene::TraceSky(const rteRay &ray, rteFragment& fragment) const {
 
+    ZoneScopedN("Trace & Shade Sky");
+
     float skyPhi = glm::dot(ray.direction, glm::vec3(0, 1, 0));
     skyPhi = glm::clamp(skyPhi, 0.0F, 1.0F);
     skyPhi = glm::pow(skyPhi, 0.35F);
@@ -42,6 +48,8 @@ void rteScene::TraceSky(const rteRay &ray, rteFragment& fragment) const {
 }
 
 void rteScene::BounceMirror(const rteState* state, const rteRay &ray, rteFragment &fragment) const {
+
+    ZoneScopedN("Bounce Mirror");
 
     rteRay reflected;
     reflected.origin = (fragment.position + fragment.normal * 0.0001F);
@@ -67,6 +75,8 @@ void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &
         ray,
         fragment
     };
+
+    ZoneScopedN("Shade Fragment");
 
     const glm::vec3 lightDir = glm::normalize(glm::vec3(1.0F, 1.0F, 1.0F));
     //glm::vec3 lightDir = glm::vec3(1, 1, 1) - fragment.position;
@@ -99,6 +109,8 @@ void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &
 
         shader->ShadeFragment(input, fragment);
 
+        ZoneScopedN("Trace Shadow");
+
         rteFragment shadowFragment;
         rteRay shadowRay(fragment.position + fragment.normal * 0.001F, lightDir);
 
@@ -124,6 +136,8 @@ void rteScene::ShadeFrag(const rteState* state, const rteRay& ray, rteFragment &
 
     if (fragment.materialIdx == 3) { // TODO: TEMP Sphere
         fragment.shaded = glm::vec3(1, 1, 1) * glm::clamp(glm::dot(fragment.normal, lightDir), 0.0F, 1.0F);
+
+        ZoneScopedN("Trace Shadow");
 
         rteFragment shadowFragment;
         rteRay shadowRay(fragment.position + fragment.normal * 0.001F, lightDir);
@@ -165,22 +179,38 @@ bool rteScene::TraceSceneSimple(const rteRay &ray, rteFragment &fragment) const 
     const float SPHERE_RADIUS = 1.0F;
     const glm::vec3 SPHERE_ORIGIN = glm::vec3(0, SPHERE_RADIUS, -5);
 
-    for (int x = 0; x < 3; x++) {
-        for (int y = 0; y < 3; y++) {
-            glm::vec3 sphereOrigin = SPHERE_ORIGIN + glm::vec3(x * (SPHERE_RADIUS * 3.0F), 0, y * -(SPHERE_RADIUS * 3.0F));
+    static bool constructedBVHs = false;
+    static rteSphere SPHERES[3 * 3];
+    static rteAABB BVHs[3 * 3];
 
-            rteAABB aabb;
-            aabb.min = sphereOrigin - glm::vec3(SPHERE_RADIUS);
-            aabb.max = sphereOrigin + glm::vec3(SPHERE_RADIUS);
+    if (!constructedBVHs) {
+        for (int x = 0; x < 3; x++) {
+            for (int y = 0; y < 3; y++) {
+                glm::vec3 sphereOrigin;
+                sphereOrigin = SPHERE_ORIGIN + glm::vec3(x * (SPHERE_RADIUS * 3.0F), 0, y * -(SPHERE_RADIUS * 3.0F));
 
-            float depth = farClip;
-            if (aabb.IntersectRay(ray, depth, 0.001F, farClip) && depth < fragment.depth) {
+                rteAABB aabb;
+                aabb.min = sphereOrigin - glm::vec3(SPHERE_RADIUS);
+                aabb.max = sphereOrigin + glm::vec3(SPHERE_RADIUS);
+
                 rteSphere sphere;
 
                 sphere.radius = SPHERE_RADIUS;
                 sphere.origin = sphereOrigin;
 
-                if (sphere.TraceSphere(ray, fragment)) {
+                SPHERES[(y * 3) + x] = sphere;
+                BVHs[(y * 3) + x] = aabb;
+
+                constructedBVHs = true;
+            }
+        }
+    }
+
+    for (int x = 0; x < 3; x++) {
+        for (int y = 0; y < 3; y++) {
+            float depth = farClip;
+            if (BVHs[(y * 3) + x].IntersectRay(ray, depth, 0.001F, farClip) && depth < fragment.depth) {
+                if (SPHERES[(y * 3) + x].TraceSphere(ray, fragment)) {
                     hitSomething = true;
                     fragment.materialIdx += (x + y) % 2 == 0;
                 }
@@ -196,6 +226,8 @@ bool rteScene::TraceSceneSimple(const rteRay &ray, rteFragment &fragment) const 
 }
 
 bool rteScene::TraceScene(const rteState* state, const rteRay &ray, rteFragment& fragment) const {
+
+    ZoneScopedN("Trace Scene");
     bool result = TraceSceneSimple(ray, fragment);
 
     if (result) {

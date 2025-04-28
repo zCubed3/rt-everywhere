@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <chrono>
+#include "tracy/Tracy.hpp"
 
 void rteState::LoadLuaModules() {
 
@@ -61,34 +62,42 @@ void rteState::Render(rteRenderTarget rt) {
 
         for (int x = 0; x < width; x++) {
             float u = x * xPer;
+            rteFragment fragment;
 
             auto start = std::chrono::high_resolution_clock::now();
 
-            ray.direction = rt.camera.NDCToRayDirection(glm::vec2(u, v));
+            {
+                ZoneScopedN("Shoot Camera Ray");
 
-            rteFragment fragment;
-            scene.TraceScene(this, ray, fragment);
+                ray.direction = rt.camera.NDCToRayDirection(glm::vec2(u, v));
 
-            if (visualizeBounceHeat) {
-                float bounceHeat = fragment.hitRay.bounces / (float) scene.numMirrorBounces;
-                fragment.shaded = glm::vec3(bounceHeat);
+                scene.TraceScene(this, ray, fragment);
 
-                // TODO: Bounces shouldn't go OOR anymore
-                fragment.shaded.r = (float) (fragment.hitRay.bounces > scene.numMirrorBounces);
+                if (visualizeBounceHeat) {
+                    float bounceHeat = fragment.hitRay.bounces / (float) scene.numMirrorBounces;
+                    fragment.shaded = glm::vec3(bounceHeat);
+
+                    // TODO: Bounces shouldn't go OOR anymore
+                    fragment.shaded.r = (float) (fragment.hitRay.bounces > scene.numMirrorBounces);
+                }
             }
 
-            //rt.pFramebuffer->WritePixel(x, y, fragment.debugColor);
-            rt.pFramebuffer->WritePixel(x, y, glm::vec4(fragment.shaded, 1.0F));
+            {
+                ZoneScopedN("Write Fragment");
 
-            auto end = std::chrono::high_resolution_clock::now();
+                //rt.pFramebuffer->WritePixel(x, y, fragment.debugColor);
+                rt.pFramebuffer->WritePixel(x, y, glm::vec4(fragment.shaded, 1.0F));
 
-            auto dur = end - start;
+                auto end = std::chrono::high_resolution_clock::now();
 
-            uint64_t shadeTime = std::chrono::duration_cast<std::chrono::nanoseconds>(dur).count();
-            shadeTimes[(y * width) + x] = shadeTime;
+                auto dur = end - start;
 
-            if (shadeTime > highestShadeTime)
-                highestShadeTime = shadeTime;
+                uint64_t shadeTime = std::chrono::duration_cast<std::chrono::nanoseconds>(dur).count();
+                shadeTimes[(y * width) + x] = shadeTime;
+
+                if (shadeTime > highestShadeTime)
+                    highestShadeTime = shadeTime;
+            }
         }
     }
 

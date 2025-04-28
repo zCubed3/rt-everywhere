@@ -2,8 +2,11 @@
 // Copyright (c) 2025 Liam Reese
 //
 #include <scene/rte_primitive.hpp>
+#include "tracy/Tracy.hpp"
 
 bool rteSphere::TraceSphere(const rteRay& ray, rteFragment& fragment) const {
+
+    ZoneScopedN("Trace Sphere");
 
     // Ported from http://three-eyed-games.com/2018/05/03/gpu-ray-tracing-in-unity-part-1/
     glm::vec3 d = ray.origin - origin;

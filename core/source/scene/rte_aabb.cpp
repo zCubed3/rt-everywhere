@@ -3,8 +3,11 @@
 //
 
 #include <scene/rte_aabb.hpp>
+#include "tracy/Tracy.hpp"
 
 bool rteAABB::IntersectRay(const rteRay &ray, float& hitT, float tMin, float tMax) {
+    ZoneScopedN("Trace AABB");
+
     glm::vec3 invD, t0s, t1s;
 
     invD = 1.0F / ray.direction;

@@ -20,19 +20,36 @@ target_include_directories(RTE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source")
 FetchContent_Declare(glm
         GIT_REPOSITORY https://github.com/g-truc/glm.git
         GIT_TAG 2d4c4b4dd31fde06cfffad7915c2b3006402322f
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
 )
 
 FetchContent_Declare(luajit
         GIT_REPOSITORY https://github.com/zCubed3/LuaJIT.git
         GIT_TAG 2c8957fdda44ab1a42cced1799288bba8210799f
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
 )
 
-set(LuaJIT_STATIC On CACHE INTERNAL "")
+# TODO: Profiling-only!
+FetchContent_Declare(tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+        GIT_TAG 5d542dc09f3d9378d005092a4ad446bd405f819a
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+)
 
-FetchContent_MakeAvailable(glm luajit)
+set(TRACY_CALLSTACK OFF CACHE INTERNAL "")
+set(TRACY_ON_DEMAND OFF CACHE INTERNAL "")
+set(TRACY_VERBOSE OFF CACHE INTERNAL "")
+set(TRACY_ENABLE ON CACHE INTERNAL "")
+
+set(LuaJIT_STATIC ON CACHE INTERNAL "")
+
+FetchContent_MakeAvailable(glm luajit tracy)
 
 target_include_directories(RTE PUBLIC glm LuaJIT::LuaJIT)
-target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT)
+target_link_libraries(RTE PUBLIC glm LuaJIT::LuaJIT Tracy::TracyClient)
 
 target_compile_definitions(RTE PUBLIC GLM_FORCE_INLINE)
 

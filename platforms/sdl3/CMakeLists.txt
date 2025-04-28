@@ -18,6 +18,8 @@ if (SDL3_IMGUI_SUPPORT)
             GIT_REPOSITORY https://github.com/ocornut/imgui.git
             GIT_BRANCH docking
             GIT_TAG 3064e6d10cf1acd1030de24d6c213d4d1308c5fa
+            GIT_SHALLOW TRUE
+            GIT_PROGRESS TRUE
     )
 
     FetchContent_MakeAvailable(dearimgui)

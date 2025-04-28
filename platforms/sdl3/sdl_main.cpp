@@ -17,6 +17,9 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_sdlrenderer3.h>
 
+#define TRACY_CALLSTACK 64
+#include <tracy/Tracy.hpp>
+
 //#define LOW_RES_FB
 
 #ifdef LOW_RES_FB
@@ -279,6 +282,8 @@ int main(int argc, char** argv) {
     rteViewport viewport;
 
     while (run) {
+        FrameMarkNamed("SDL Frame");
+
         int draw_preview = 1;
 
         //https://gamedev.stackexchange.com/questions/110825/how-to-calculate-delta-time-with-sdl
@@ -444,10 +449,14 @@ int main(int argc, char** argv) {
         ImGui::Checkbox("Bounce Heatmap?", &state.visualizeBounceHeat);
         ImGui::Checkbox("Shade Heatmap?", &state.visualizeShadeTime);
 
+        ImGui::DragInt("Mirror Bounces", &state.scene.numMirrorBounces, 1.0F, 0, 10);
+
         constexpr int TOTAL_SHADE_TIMES = 60;
         static float lastShadeTimes[TOTAL_SHADE_TIMES];
 
         if (lock_cursor || shouldRender) {
+
+            ZoneScopedN("Render Frame");
 
             rteRenderTarget rt;
 
