@@ -89,6 +89,16 @@ if (APPLE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_options(RTE PRIVATE "-funroll-loops" "-O3" "-ffast-math")
 endif()
 
+if (UNIX AND NOT APPLE STREQUAL "Release")
+    message("Enabling release optimizations...")
+    target_compile_options(RTE PRIVATE "-funroll-loops" "-O3" "-ffast-math")
+
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        # TODO: Check if system supports AVX2
+        target_compile_options(RTE PRIVATE "-mavx2")
+    endif()
+endif()
+
 #
 # Aliasing
 #
